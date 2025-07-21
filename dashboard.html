@@ -60,6 +60,33 @@
       </div>
     </header>
     <main class="max-w-7xl mx-auto pt-32 pb-16 px-4 fade-in">
+      <section class="bg-white/90 p-8 rounded-2xl shadow-magic border border-primary/10 mb-8 transition-all duration-300 hover:shadow-2xl">
+        <h2 class="text-2xl font-bold font-display text-primary mb-4 flex items-center gap-2">
+          <svg class="w-8 h-8 text-accent -mt-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 3v4M8 3v4M3 11h18" />
+          </svg>
+          Planning prévisionnel
+        </h2>
+        <div class="overflow-x-auto">
+          <table class="min-w-full border-separate border-spacing-0 rounded-2xl shadow-lg bg-white">
+            <thead>
+              <tr class="bg-gradient-to-r from-primary/80 to-accent/80 text-white">
+                <th class="px-4 py-3 text-left font-bold rounded-tl-2xl">Projet</th>
+                <th class="px-4 py-3 text-left font-bold">Priorité</th>
+                <th class="px-4 py-3 text-left font-bold">Points</th>
+                <th class="px-4 py-3 text-left font-bold">Sprints nécessaires</th>
+                <th class="px-4 py-3 text-left font-bold">Sprint début</th>
+                <th class="px-4 py-3 text-left font-bold">Sprint fin</th>
+                <th class="px-4 py-3 text-left font-bold">Date de fin prévisionnelle</th>
+                <th class="px-4 py-3 text-left font-bold">Devs affectés</th>
+                <th class="px-4 py-3 text-left font-bold rounded-tr-2xl">Fini ?</th>
+              </tr>
+            </thead>
+            <tbody id="planningTableBody"></tbody>
+          </table>
+        </div>
+      </section>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <section class="bg-white/90 p-6 rounded-2xl shadow-magic border border-primary/10 transition-all duration-300 hover:shadow-2xl">
           <h2 class="text-xl font-bold font-display text-primary mb-4 flex items-center gap-2">
@@ -341,6 +368,113 @@
           }
         }
       });
+
+      // Remplacer la fonction genererPlanning par la vraie version de index.html
+      function genererPlanning(devs, projects) {
+        const POINTS_PAR_STATUT = {
+          'Débutant': 30,
+          'Junior': 45,
+          'Confirmé': 60,
+          'Senior': 75,
+        };
+        const SPRINT_DAYS = 10;
+        // Tri des projets par priorité croissante
+        const projetsTries = [...projects].sort((a, b) => a.priorite - b.priorite);
+        let sprintIndex = 0;
+        let projetsRestants = projetsTries.map(p => ({ ...p, pointsRestants: p.points, debut: null, fin: null, sprints: 0, devsAffectes: [] }));
+        let devsState = devs.map(dev => ({ ...dev }));
+        // On boucle tant qu’il reste des projets à finir
+        while (projetsRestants.some(p => p.pointsRestants > 0)) {
+          // Pour chaque projet, dans l’ordre de priorité
+          for (let projet of projetsRestants) {
+            if (projet.pointsRestants <= 0) continue;
+            if (projet.debut === null) projet.debut = sprintIndex;
+            let pointsAffectes = 0;
+            // Déterminer les devs à utiliser pour ce projet
+            let devsPourProjet = Array.isArray(projet.devsAffectesIds) && projet.devsAffectesIds.length > 0
+              ? devsState.filter(d => projet.devsAffectesIds.includes(d.id))
+              : devsState;
+            // Capacité dispo ce sprint pour ces devs
+            const dispoSprint = devsPourProjet.map(dev => ({
+              ...dev,
+              pointsDispo: POINTS_PAR_STATUT[dev.statut] || 0,
+            }));
+            // Répartition sur les devs affectés
+            for (let dev of dispoSprint) {
+              if (dev.pointsDispo <= 0 || projet.pointsRestants <= 0) continue;
+              const pointsPourCeDev = Math.min(dev.pointsDispo, projet.pointsRestants);
+              dev.pointsDispo -= pointsPourCeDev;
+              projet.pointsRestants -= pointsPourCeDev;
+              pointsAffectes += pointsPourCeDev;
+              if (!projet.devsAffectes.includes(dev.nom)) projet.devsAffectes.push(dev.nom);
+            }
+            if (pointsAffectes > 0) projet.sprints++;
+            if (projet.pointsRestants <= 0 && projet.fin === null) projet.fin = sprintIndex;
+          }
+          sprintIndex++;
+        }
+        // Ajout d’une marge de 1 sprint par projet
+        for (let projet of projetsRestants) {
+          projet.sprints += 1;
+          projet.fin = (projet.fin ?? 0) + 1;
+        }
+        return projetsRestants;
+      }
+      // Fonction utilitaire pour la date de fin prévisionnelle
+      function getDateFin(proj) {
+        if (!proj.dateDebut) return "-";
+        const SPRINT_DAYS = 10;
+        const d = new Date(proj.dateDebut);
+        const totalDays = proj.sprints * (SPRINT_DAYS + 2);
+        d.setDate(d.getDate() + totalDays);
+        return d.toLocaleDateString('fr-FR');
+      }
+      // Affichage du planning dans le tableau
+      function renderPlanningTable() {
+        const planning = genererPlanning(devs, projects);
+        const projectsById = Object.fromEntries(projects.map(p => [p.id, p]));
+        const tbody = document.getElementById('planningTableBody');
+        tbody.innerHTML = '';
+        planning.forEach((proj, idx) => {
+          const p = projectsById[proj.id] || {};
+          let rowClass = "transition hover:bg-accent/10 ";
+          if (p.fini) rowClass += "bg-green-50 ";
+          else {
+            // On parse la date de fin prévisionnelle
+            const dateFinStr = getDateFin(proj);
+            if (dateFinStr && dateFinStr !== '-') {
+              const [jour, mois, annee] = dateFinStr.split('/').map(Number);
+              const dateFin = new Date(annee, mois - 1, jour);
+              const now = new Date();
+              dateFin.setHours(0,0,0,0);
+              now.setHours(0,0,0,0);
+              const diffJours = Math.ceil((dateFin - now) / (1000 * 60 * 60 * 24));
+              if (diffJours < 0) rowClass += 'bg-red-50 ';
+              else if (diffJours <= 7) rowClass += 'bg-orange-50 ';
+              else rowClass += (idx % 2 === 0 ? 'bg-gray-50 ' : 'bg-white ');
+            } else {
+              rowClass += (idx % 2 === 0 ? 'bg-gray-50 ' : 'bg-white ');
+            }
+          }
+          const tr = document.createElement('tr');
+          tr.className = rowClass;
+          tr.innerHTML = `
+            <td class="px-4 py-3 font-semibold text-dark text-base rounded-l-xl border-b border-gray-200">${proj.nom}</td>
+            <td class="px-4 py-3 border-b border-gray-200">
+              <span class="inline-block px-2 py-1 rounded-full text-xs font-bold ${proj.priorite === 1 ? 'bg-primary/90 text-white' : proj.priorite === 2 ? 'bg-accent/90 text-white' : 'bg-gray-200 text-gray-700'}">${proj.priorite}</span>
+            </td>
+            <td class="px-4 py-3 border-b border-gray-200 text-gray-700 font-medium">${proj.points}</td>
+            <td class="px-4 py-3 border-b border-gray-200 text-gray-700 font-medium">${proj.sprints}</td>
+            <td class="px-4 py-3 border-b border-gray-200 text-gray-700">${proj.debut + 1}</td>
+            <td class="px-4 py-3 border-b border-gray-200 text-gray-700">${proj.fin + 1}</td>
+            <td class="px-4 py-3 border-b border-gray-200 text-gray-700 whitespace-nowrap">${getDateFin(proj)}</td>
+            <td class="px-4 py-3 border-b border-gray-200 text-gray-700">${(proj.devsAffectes || []).join(', ')}</td>
+            <td class="px-4 py-3 border-b border-gray-200 rounded-r-xl">${p.fini ? '<span class="inline-block px-3 py-1 rounded-full bg-green-600/90 text-white text-xs font-bold">Livré</span>' : '<span class="inline-block px-3 py-1 rounded-full border-2 border-accent text-accent bg-accent/10 text-xs font-bold">En cours</span>'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+      document.addEventListener('DOMContentLoaded', renderPlanningTable);
     </script>
   </body>
 </html> 
