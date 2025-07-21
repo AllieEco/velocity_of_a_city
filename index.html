@@ -112,10 +112,12 @@
         // Chargement initial depuis localStorage
         const [devs, setDevs] = React.useState(() => loadLS('devs', []));
         const [projects, setProjects] = React.useState(() => loadLS('projects', []).map(p => ({...p, fini: p.fini ?? false})));
+        const [sprints, setSprints] = React.useState(() => loadLS('sprints', []));
 
         // Sauvegarde à chaque modification
         React.useEffect(() => { saveLS('devs', devs); }, [devs]);
         React.useEffect(() => { saveLS('projects', projects); }, [projects]);
+        React.useEffect(() => { saveLS('sprints', sprints); }, [sprints]);
 
         // absences: { [sprintIndex]: nbJours }
 
@@ -186,13 +188,16 @@
         return (
           <div className="space-y-12">
             <section className="fade-in">
+              <SprintList sprints={sprints} setSprints={setSprints} />
+            </section>
+            <section className="fade-in">
               <DevInput devs={devs} setDevs={setDevs} POINTS_PAR_STATUT={POINTS_PAR_STATUT} />
             </section>
             <section className="fade-in">
               <ProjectInput projects={projects} setProjects={setProjects} devs={devs} />
             </section>
             <section className="fade-in">
-              <SprintConfig devs={devs} setDevs={setDevs} />
+              <SprintConfig devs={devs} setDevs={setDevs} sprints={sprints} />
             </section>
             <section className="fade-in">
               <PlanningView devs={devs} projects={projects} genererPlanning={genererPlanning} setProjects={setProjects} />
@@ -269,61 +274,93 @@
           }
         }
 
+        // Nouvelle carte : liste des sprints (dates uniques triées)
+        // On récupère toutes les dates d'absences de tous les devs
+        const allDates = Array.from(new Set(
+          devs.flatMap(dev => Object.keys(dev.absences || {}))
+        ));
+        const sortedDates = allDates.filter(Boolean).sort((a, b) => new Date(a) - new Date(b));
+        function formatDateFR(dateStr) {
+          if (!dateStr) return "-";
+          try {
+            return new Date(dateStr).toLocaleDateString('fr-FR');
+          } catch {
+            return dateStr;
+          }
+        }
+
         return (
-          <section className="bg-white/90 p-8 rounded-2xl shadow-magic border border-primary/10 mb-8 transition-all duration-300 hover:shadow-2xl">
-            <h2 className="text-2xl font-bold font-display text-primary mb-4 flex items-center gap-2">
-              <svg className="w-7 h-7 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              Développeurs
-            </h2>
-            <form className="flex flex-col md:flex-row md:items-end gap-4 mb-6" onSubmit={handleSubmit}>
-              <div className="flex-1">
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Prénom</label>
-                <input type="text" className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" value={prenom} onChange={e => setPrenom(e.target.value)} required />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Nom</label>
-                <input type="text" className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" value={nom} onChange={e => setNom(e.target.value)} required />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Statut</label>
-                <select className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" value={statut} onChange={e => setStatut(e.target.value)}>
-                  {Object.keys(POINTS_PAR_STATUT).map(s => (
-                    <option key={s} value={s}>{s}</option>
+          <>
+            {sortedDates.length > 0 && (
+              <section className="bg-white/90 p-6 rounded-2xl shadow-magic border border-accent/20 mb-8 transition-all duration-300 hover:shadow-xl">
+                <h2 className="text-xl font-bold font-display text-accent mb-3 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="2"/><path strokeLinecap="round" strokeLinejoin="round" d="M16 3v4M8 3v4M3 11h18" /></svg>
+                  Sprints & dates
+                </h2>
+                <div className="flex flex-wrap gap-4">
+                  {sortedDates.map((date, idx) => (
+                    <div key={date} className="px-4 py-2 rounded-lg bg-accent/10 text-accent font-semibold shadow border border-accent/20">
+                      Sprint {idx + 1} : {formatDateFR(date)}
+                    </div>
                   ))}
-                </select>
-              </div>
+                </div>
+              </section>
+            )}
+            <section className="bg-white/90 p-8 rounded-2xl shadow-magic border border-primary/10 mb-8 transition-all duration-300 hover:shadow-2xl">
+              <h2 className="text-2xl font-bold font-display text-primary mb-4 flex items-center gap-2">
+                <svg className="w-7 h-7 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Développeurs
+              </h2>
+              <form className="flex flex-col md:flex-row md:items-end gap-4 mb-6" onSubmit={handleSubmit}>
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Prénom</label>
+                  <input type="text" className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" value={prenom} onChange={e => setPrenom(e.target.value)} required />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Nom</label>
+                  <input type="text" className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" value={nom} onChange={e => setNom(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Statut</label>
+                  <select className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" value={statut} onChange={e => setStatut(e.target.value)}>
+                    {Object.keys(POINTS_PAR_STATUT).map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Points/sprint</label>
+                  <input type="text" className="w-20 border-2 border-primary/10 rounded-lg px-3 py-2 bg-gray-100 text-center font-bold" value={points} readOnly />
+                </div>
+                <button type="submit" className={"px-5 py-2 rounded-lg font-bold text-white shadow transition-all duration-200 " + (editMode ? "bg-primary hover:bg-primary/90" : "bg-accent hover:bg-accent/80")}>{editMode ? "Modifier" : "Ajouter"}</button>
+                {editMode && (
+                  <button type="button" className="ml-2 px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition" onClick={handleCancelEdit}>Annuler</button>
+                )}
+              </form>
               <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Points/sprint</label>
-                <input type="text" className="w-20 border-2 border-primary/10 rounded-lg px-3 py-2 bg-gray-100 text-center font-bold" value={points} readOnly />
+                <h3 className="font-semibold mb-2 text-gray-700">Liste des développeurs</h3>
+                {devs.length === 0 ? (
+                  <div className="text-gray-400 italic">Aucun développeur saisi.</div>
+                ) : (
+                  <ul className="divide-y">
+                    {devs.map(dev => (
+                      <li key={dev.id} className="py-2 flex items-center gap-4 group">
+                        <span className="font-medium text-dark">{dev.prenom} {dev.nom}</span>
+                        <span className="text-sm text-primary font-semibold">{dev.statut}</span>
+                        <span className="text-xs text-gray-400">{POINTS_PAR_STATUT[dev.statut]} pts/sprint</span>
+                        <button type="button" className="ml-2 text-accent hover:text-primary font-bold opacity-70 group-hover:opacity-100 transition" title="Modifier" onClick={() => handleEdit(dev)}>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6-6M3 21h18" /></svg>
+                        </button>
+                        <button type="button" className="ml-2 text-red-400 hover:text-red-600 font-bold opacity-70 group-hover:opacity-100 transition" title="Supprimer" onClick={() => handleDelete(dev.id)}>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              <button type="submit" className={"px-5 py-2 rounded-lg font-bold text-white shadow transition-all duration-200 " + (editMode ? "bg-primary hover:bg-primary/90" : "bg-accent hover:bg-accent/80")}>{editMode ? "Modifier" : "Ajouter"}</button>
-              {editMode && (
-                <button type="button" className="ml-2 px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition" onClick={handleCancelEdit}>Annuler</button>
-              )}
-            </form>
-            <div>
-              <h3 className="font-semibold mb-2 text-gray-700">Liste des développeurs</h3>
-              {devs.length === 0 ? (
-                <div className="text-gray-400 italic">Aucun développeur saisi.</div>
-              ) : (
-                <ul className="divide-y">
-                  {devs.map(dev => (
-                    <li key={dev.id} className="py-2 flex items-center gap-4 group">
-                      <span className="font-medium text-dark">{dev.prenom} {dev.nom}</span>
-                      <span className="text-sm text-primary font-semibold">{dev.statut}</span>
-                      <span className="text-xs text-gray-400">{POINTS_PAR_STATUT[dev.statut]} pts/sprint</span>
-                      <button type="button" className="ml-2 text-accent hover:text-primary font-bold opacity-70 group-hover:opacity-100 transition" title="Modifier" onClick={() => handleEdit(dev)}>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6-6M3 21h18" /></svg>
-                      </button>
-                      <button type="button" className="ml-2 text-red-400 hover:text-red-600 font-bold opacity-70 group-hover:opacity-100 transition" title="Supprimer" onClick={() => handleDelete(dev.id)}>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
+            </section>
+          </>
         );
       }
 
@@ -566,12 +603,12 @@
       }
 
       // Saisie des indisponibilités par sprint
-      function SprintConfig({ devs, setDevs }) {
-        const [sprintIndex, setSprintIndex] = React.useState(0);
+      function SprintConfig({ devs, setDevs, sprints = [] }) {
+        const [sprintDate, setSprintDate] = React.useState("");
         const [devId, setDevId] = React.useState("");
         const [jours, setJours] = React.useState(0);
         const [editMode, setEditMode] = React.useState(false);
-        const [editTarget, setEditTarget] = React.useState(null); // {devId, sprintIndex}
+        const [editTarget, setEditTarget] = React.useState(null); // {devId, sprintDate}
 
         // Points par statut (pour le calcul)
         const POINTS_PAR_STATUT = {
@@ -585,60 +622,74 @@
         // Ajout ou modification d’une absence
         function handleSubmit(e) {
           e.preventDefault();
-          if (!devId || sprintIndex < 0) return;
+          if (!devId || !sprintDate) return;
           setDevs(devs => devs.map(dev => {
             if (dev.id !== Number(devId)) return dev;
             return {
               ...dev,
               absences: {
                 ...dev.absences,
-                [sprintIndex]: Number(jours)
+                [sprintDate]: Number(jours)
               }
             };
           }));
           setJours(0);
           setEditMode(false);
           setEditTarget(null);
+          setSprintDate("");
+          setDevId("");
         }
 
         // Suppression d’une absence
-        function handleDeleteAbs(devIdToDel, sprintToDel) {
+        function handleDeleteAbs(devIdToDel, sprintDateToDel) {
           setDevs(devs => devs.map(dev => {
             if (dev.id !== devIdToDel) return dev;
             const newAbs = { ...dev.absences };
-            delete newAbs[sprintToDel];
+            delete newAbs[sprintDateToDel];
             return { ...dev, absences: newAbs };
           }));
           // Si on était en édition de cette absence, reset
-          if (editTarget && editTarget.devId === devIdToDel && editTarget.sprintIndex === sprintToDel) {
+          if (editTarget && editTarget.devId === devIdToDel && editTarget.sprintDate === sprintDateToDel) {
             setEditMode(false);
             setEditTarget(null);
             setJours(0);
+            setSprintDate("");
+            setDevId("");
           }
         }
 
         // Pré-remplir le formulaire pour édition
-        function handleEditAbs(devIdEdit, sprintEdit, nbJours) {
+        function handleEditAbs(devIdEdit, sprintDateEdit, nbJours) {
           setDevId(devIdEdit.toString());
-          setSprintIndex(sprintEdit);
+          setSprintDate(sprintDateEdit);
           setJours(nbJours);
           setEditMode(true);
-          setEditTarget({ devId: devIdEdit, sprintIndex: sprintEdit });
+          setEditTarget({ devId: devIdEdit, sprintDate: sprintDateEdit });
         }
 
-        // Calcule les points restants pour un dev sur un sprint donné
-        function getPointsRestants(dev, sprint) {
+        // Calcule les points restants pour un dev sur une date donnée
+        function getPointsRestants(dev, sprintDate) {
           const base = POINTS_PAR_STATUT[dev.statut] || 0;
-          const abs = dev.absences?.[sprint] || 0;
+          const abs = dev.absences?.[sprintDate] || 0;
           const ratio = Math.max(0, 1 - abs / SPRINT_DAYS);
           return Math.round(base * ratio);
+        }
+
+        // Formatage date FR
+        function formatDateFR(dateStr) {
+          if (!dateStr) return "-";
+          try {
+            return new Date(dateStr).toLocaleDateString('fr-FR');
+          } catch {
+            return dateStr;
+          }
         }
 
         return (
           <section className="bg-white/90 p-8 rounded-2xl shadow-magic border border-primary/10 mb-8 transition-all duration-300 hover:shadow-2xl">
             <h2 className="text-2xl font-bold font-display text-primary mb-4 flex items-center gap-2">
               <svg className="w-7 h-7 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-              Indisponibilités par sprint
+              Indisponibilités par date
             </h2>
             {devs.length === 0 ? (
               <div className="text-gray-400 italic">Ajoutez d’abord des développeurs.</div>
@@ -646,8 +697,8 @@
               <>
                 <form className="flex flex-col md:flex-row md:items-end gap-4 mb-6" onSubmit={handleSubmit}>
                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-gray-700">Sprint n°</label>
-                    <input type="number" min="0" className="w-20 border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" value={sprintIndex} onChange={e => setSprintIndex(e.target.value)} required />
+                    <label className="block text-sm font-semibold mb-1 text-gray-700">Date</label>
+                    <input type="date" className="w-44 border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" value={sprintDate} onChange={e => setSprintDate(e.target.value)} required />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-1 text-gray-700">Développeur</label>
@@ -660,11 +711,11 @@
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-1 text-gray-700">Jours d’absence</label>
-                    <input type="number" min="0" max="10" className="w-20 border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" value={jours} onChange={e => setJours(e.target.value)} required />
+                    <input type="number" min="0" className="w-20 border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" value={jours} onChange={e => setJours(e.target.value)} required />
                   </div>
                   <button type="submit" className={"px-5 py-2 rounded-lg font-bold text-white shadow transition-all duration-200 " + (editMode ? "bg-primary hover:bg-primary/90" : "bg-yellow-600 hover:bg-yellow-700")}>{editMode ? "Modifier" : "Enregistrer"}</button>
                   {editMode && (
-                    <button type="button" className="ml-2 px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition" onClick={() => { setEditMode(false); setEditTarget(null); setJours(0); }}>Annuler</button>
+                    <button type="button" className="ml-2 px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition" onClick={() => { setEditMode(false); setEditTarget(null); setJours(0); setSprintDate(""); setDevId(""); }}>Annuler</button>
                   )}
                 </form>
                 <div>
@@ -677,19 +728,43 @@
                         Object.keys(dev.absences || {}).length === 0 ? null : (
                           <li key={dev.id} className="py-2">
                             <span className="font-medium text-dark">{dev.prenom} {dev.nom} :</span>
-                            {Object.entries(dev.absences).map(([sprint, nb]) => (
-                              <span key={sprint} className="ml-2 text-sm text-primary font-semibold inline-flex items-center gap-1">
-                                <span>
-                                  Sprint {sprint} : {nb}j ({getPointsRestants(dev, sprint)} pts)
+                            {Object.entries(
+                              Object.fromEntries(
+                                Object.entries(dev.absences || {}).sort((a, b) => new Date(a[0]) - new Date(b[0]))
+                              )
+                            ).map(([date, nb]) => {
+                              // Trouver les n° de sprint(s) correspondant à la période d'absence
+                              let sprintsNums = [];
+                              if (sprints && sprints.length > 0 && date) {
+                                const dateDebutAbs = new Date(date);
+                                const dateFinAbs = new Date(date);
+                                dateFinAbs.setDate(dateFinAbs.getDate() + Number(nb) - 1);
+                                sprints.forEach(s => {
+                                  const sprintDeb = new Date(s.dateDebut);
+                                  const sprintFin = new Date(s.dateFin);
+                                  if (
+                                    (dateDebutAbs <= sprintFin && dateDebutAbs >= sprintDeb) || // commence dans le sprint
+                                    (dateFinAbs >= sprintDeb && dateFinAbs <= sprintFin) || // finit dans le sprint
+                                    (dateDebutAbs <= sprintDeb && dateFinAbs >= sprintFin) // englobe le sprint
+                                  ) {
+                                    sprintsNums.push(s.numero);
+                                  }
+                                });
+                              }
+                              return (
+                                <span key={date} className="ml-2 text-sm text-primary font-semibold inline-flex items-center gap-1">
+                                  <span>
+                                    Sprint {sprintsNums.length > 0 ? sprintsNums.join(', ') : '-'} : {formatDateFR(date)} : {nb}j ({getPointsRestants(dev, date)} pts)
+                                  </span>
+                                  <button type="button" className="ml-1 text-accent hover:text-primary font-bold opacity-70 group-hover:opacity-100 transition" title="Modifier" onClick={() => handleEditAbs(dev.id, date, nb)}>
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  </button>
+                                  <button type="button" className="ml-1 text-red-400 hover:text-red-600 font-bold opacity-70 group-hover:opacity-100 transition" title="Supprimer" onClick={() => handleDeleteAbs(dev.id, date)}>
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                  </button>
                                 </span>
-                                <button type="button" className="ml-1 text-accent hover:text-primary font-bold opacity-70 group-hover:opacity-100 transition" title="Modifier" onClick={() => handleEditAbs(dev.id, sprint, nb)}>
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
-                                <button type="button" className="ml-1 text-red-400 hover:text-red-600 font-bold opacity-70 group-hover:opacity-100 transition" title="Supprimer" onClick={() => handleDeleteAbs(dev.id, sprint)}>
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                              </span>
-                            ))}
+                              );
+                            })}
                           </li>
                         )
                       ))}
@@ -920,7 +995,27 @@
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700 font-medium">{proj.sprints}</td>
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700">{proj.debut + 1}</td>
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700">{proj.fin + 1}</td>
-                      <td className="px-4 py-3 border-b border-gray-200 text-gray-700 whitespace-nowrap">{getDateFin(proj)}</td>
+                      <td className="px-4 py-3 border-b border-gray-200 text-gray-700 whitespace-nowrap">{getDateFin(proj)}
+  {/* Affichage du retard en mois si projet en retard */}
+  {(() => {
+    if (proj.fini) return null;
+    const dateFinStr = getDateFin(proj);
+    if (!dateFinStr || dateFinStr === '-') return null;
+    const [jour, mois, annee] = dateFinStr.split('/').map(Number);
+    const dateFin = new Date(annee, mois - 1, jour);
+    const now = new Date();
+    dateFin.setHours(0,0,0,0);
+    now.setHours(0,0,0,0);
+    const diffJours = Math.ceil((now - dateFin) / (1000 * 60 * 60 * 24));
+    if (diffJours > 0) {
+      const moisRetard = Math.ceil(diffJours / 30);
+      return (
+        <div className="text-xs text-red-600 font-bold mt-1">{moisRetard} mois de retard</div>
+      );
+    }
+    return null;
+  })()}
+</td>
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700">{proj.devsAffectes.join(", ")}</td>
                       <td className="px-4 py-3 border-b border-gray-200 rounded-r-xl">
                         {proj.fini ? (
@@ -949,6 +1044,131 @@
               message={modalTarget && (modalTarget.fini ? 'Marquer ce projet comme non fini ?' : 'Marquer ce projet comme fini ?')}
             />
             <div className="text-xs text-gray-500 mt-2">* 1 sprint de marge est ajouté automatiquement à chaque projet.</div>
+          </section>
+        );
+      }
+
+      // Nouveau composant SprintList
+      function SprintList({ sprints, setSprints }) {
+        const [numero, setNumero] = React.useState("");
+        const [dateDebut, setDateDebut] = React.useState("");
+        const [dateFin, setDateFin] = React.useState("");
+        const [editMode, setEditMode] = React.useState(false);
+        const [editId, setEditId] = React.useState(null);
+
+        function handleSubmit(e) {
+          e.preventDefault();
+          if (!numero || !dateDebut || !dateFin) return;
+          if (editMode && editId !== null) {
+            setSprints(sprints => sprints.map(s =>
+              s.id === editId
+                ? { ...s, numero: Number(numero), dateDebut, dateFin }
+                : s
+            ));
+            setEditMode(false);
+            setEditId(null);
+          } else {
+            setSprints(sprints => [
+              ...sprints,
+              {
+                id: Date.now(),
+                numero: Number(numero),
+                dateDebut,
+                dateFin,
+              },
+            ]);
+          }
+          setNumero("");
+          setDateDebut("");
+          setDateFin("");
+        }
+
+        function handleEdit(sprint) {
+          setNumero(sprint.numero);
+          setDateDebut(sprint.dateDebut);
+          setDateFin(sprint.dateFin);
+          setEditMode(true);
+          setEditId(sprint.id);
+        }
+
+        function handleCancelEdit() {
+          setEditMode(false);
+          setEditId(null);
+          setNumero("");
+          setDateDebut("");
+          setDateFin("");
+        }
+
+        function handleDelete(id) {
+          if (window.confirm('Supprimer ce sprint ?')) {
+            setSprints(sprints => sprints.filter(s => s.id !== id));
+            if (editId === id) {
+              setEditMode(false);
+              setEditId(null);
+              setNumero("");
+              setDateDebut("");
+              setDateFin("");
+            }
+          }
+        }
+
+        // Tri par numéro croissant
+        const sprintsTries = [...sprints].sort((a, b) => a.numero - b.numero);
+
+        function formatDateFR(dateStr) {
+          if (!dateStr) return "-";
+          try {
+            return new Date(dateStr).toLocaleDateString('fr-FR');
+          } catch {
+            return dateStr;
+          }
+        }
+
+        return (
+          <section className="bg-white/90 p-8 rounded-2xl shadow-magic border border-accent/20 mb-8 transition-all duration-300 hover:shadow-xl">
+            <h2 className="text-xl font-bold font-display text-accent mb-3 flex items-center gap-2">
+              <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="2"/><path strokeLinecap="round" strokeLinejoin="round" d="M16 3v4M8 3v4M3 11h18" /></svg>
+              Sprints (gestion manuelle)
+            </h2>
+            <form className="flex flex-col md:flex-row md:items-end gap-4 mb-6" onSubmit={handleSubmit}>
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-gray-700">N° Sprint</label>
+                <input type="number" min="1" className="w-24 border-2 border-accent/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent/40 transition h-10" value={numero} onChange={e => setNumero(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-gray-700">Date début</label>
+                <input type="date" className="w-44 border-2 border-accent/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent/40 transition h-10" value={dateDebut} onChange={e => setDateDebut(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-gray-700">Date fin</label>
+                <input type="date" className="w-44 border-2 border-accent/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent/40 transition h-10" value={dateFin} onChange={e => setDateFin(e.target.value)} required />
+              </div>
+              <button type="submit" className={"px-5 py-2 rounded-lg font-bold text-white shadow transition-all duration-200 " + (editMode ? "bg-primary hover:bg-primary/90" : "bg-accent hover:bg-accent/80")}>{editMode ? "Modifier" : "Ajouter"}</button>
+              {editMode && (
+                <button type="button" className="ml-2 px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition" onClick={handleCancelEdit}>Annuler</button>
+              )}
+            </form>
+            <div>
+              <h3 className="font-semibold mb-2 text-gray-700">Liste des sprints</h3>
+              {sprintsTries.length === 0 ? (
+                <div className="text-gray-400 italic">Aucun sprint saisi.</div>
+              ) : (
+                <ul className="divide-y">
+                  {sprintsTries.map(sprint => (
+                    <li key={sprint.id} className="py-2 flex items-center gap-4 group">
+                      <span className="font-medium text-dark">Sprint {sprint.numero}</span>
+                      <span className="text-sm text-accent font-semibold">{formatDateFR(sprint.dateDebut)} → {formatDateFR(sprint.dateFin)}</span>
+                      <button type="button" className="ml-2 text-accent hover:text-primary font-bold opacity-70 group-hover:opacity-100 transition" title="Modifier" onClick={() => handleEdit(sprint)}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      </button>
+                      <button type="button" className="ml-2 text-red-400 hover:text-red-600 font-bold opacity-70 group-hover:opacity-100 transition" title="Supprimer" onClick={() => handleDelete(sprint.id)}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </section>
         );
       }
