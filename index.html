@@ -65,6 +65,7 @@
           <h1 class="text-3xl font-extrabold font-display text-primary tracking-tight">Gestion Agile</h1>
           <div class="text-sm text-gray-500 font-semibold">Le planning qui fait rêver les chefs de projet ✨</div>
         </div>
+        <a href="dashboard.html" class="ml-auto px-5 py-2 rounded-lg font-bold text-white bg-accent hover:bg-primary transition shadow">Dashboard</a>
       </div>
     </header>
     <!-- Main -->
@@ -778,16 +779,24 @@
       }
 
       // 1. Composant Modal
-      function Modal({ open, onClose, onConfirm, message }) {
+      function Modal({ open, onClose, onConfirm, message, requireDate, onDateChange, dateValue }) {
         if (!open) return null;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
             <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-xs w-full text-center animate-fade-in">
               <div className="mb-6 text-lg font-semibold text-dark">{message}</div>
+              {requireDate && (
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Date de livraison</label>
+                  <input type="date" className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" value={dateValue} onChange={e => onDateChange(e.target.value)} required />
+                </div>
+              )}
               <div className="flex justify-center gap-4">
                 <button
                   className="px-5 py-2 rounded-lg font-bold text-white bg-green-500 hover:bg-green-600 transition"
                   onClick={onConfirm}
+                  disabled={requireDate && !dateValue}
+                  style={requireDate && !dateValue ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                 >
                   Oui
                 </button>
@@ -827,23 +836,43 @@
         // Handler pour changer l'état fini
         const [modalOpen, setModalOpen] = React.useState(false);
         const [modalTarget, setModalTarget] = React.useState(null); // {id, fini}
+        const [modalDate, setModalDate] = React.useState("");
 
         function handleToggleFini(projId) {
           const proj = projects.find(p => p.id === projId);
           if (!proj) return;
           setModalTarget({ id: projId, fini: proj.fini });
+          setModalDate("");
           setModalOpen(true);
         }
         function handleModalConfirm() {
           if (modalTarget) {
-            setProjects(projects => projects.map(p => p.id === modalTarget.id ? { ...p, fini: !modalTarget.fini } : p));
+            setProjects(projects => projects.map(p => {
+              if (p.id === modalTarget.id) {
+                // Si on marque comme fini, on enregistre la date de livraison ET le nombre de sprints nécessaires
+                if (!modalTarget.fini && modalDate) {
+                  // On récupère le planning courant pour ce projet
+                  const planning = genererPlanning(devs, projects);
+                  const planProj = planning.find(pl => pl.id === p.id);
+                  return { ...p, fini: true, dateFin: modalDate, sprints: planProj ? planProj.sprints : p.sprints };
+                }
+                // Si on remet en non fini, on efface la date de livraison et le champ sprints
+                if (modalTarget.fini) {
+                  const { dateFin, sprints, ...rest } = p;
+                  return { ...rest, fini: false };
+                }
+              }
+              return p;
+            }));
           }
           setModalOpen(false);
           setModalTarget(null);
+          setModalDate("");
         }
         function handleModalClose() {
           setModalOpen(false);
           setModalTarget(null);
+          setModalDate("");
         }
 
         // Calcule la date de fin prévisionnelle
@@ -1042,6 +1071,9 @@
               onClose={handleModalClose}
               onConfirm={handleModalConfirm}
               message={modalTarget && (modalTarget.fini ? 'Marquer ce projet comme non fini ?' : 'Marquer ce projet comme fini ?')}
+              requireDate={modalTarget && !modalTarget.fini}
+              dateValue={modalDate}
+              onDateChange={setModalDate}
             />
             <div className="text-xs text-gray-500 mt-2">* 1 sprint de marge est ajouté automatiquement à chaque projet.</div>
           </section>
