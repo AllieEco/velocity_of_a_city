@@ -112,8 +112,17 @@
 
         // Chargement initial depuis localStorage
         const [devs, setDevs] = React.useState(() => loadLS('devs', []));
-        const [projects, setProjects] = React.useState(() => loadLS('projects', []).map(p => ({...p, fini: p.fini ?? false})));
+        const [projects, setProjects] = React.useState(() => loadLS('projects', []).map(p => ({...p, fini: p.fini ?? false, statut: p.statut || 'conception'})));
         const [sprints, setSprints] = React.useState(() => loadLS('sprints', []));
+
+        // Statuts de projet avec leurs couleurs
+        const STATUTS_PROJET = {
+          'conception': { color: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: '🎨', label: 'Conception' },
+          'dev': { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: '💻', label: 'Développement' },
+          'test': { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: '🧪', label: 'Test' },
+          'review': { color: 'bg-purple-100 text-purple-800 border-purple-200', icon: '👀', label: 'Review' },
+          'deploy': { color: 'bg-green-100 text-green-800 border-green-200', icon: '🚀', label: 'Déploiement' }
+        };
 
         // Sauvegarde à chaque modification
         React.useEffect(() => { saveLS('devs', devs); }, [devs]);
@@ -261,13 +270,13 @@
               <DevInput devs={devs} setDevs={setDevs} POINTS_PAR_STATUT={POINTS_PAR_STATUT} />
             </section>
             <section className="fade-in">
-              <ProjectInput projects={projects} setProjects={setProjects} devs={devs} />
+              <ProjectInput projects={projects} setProjects={setProjects} devs={devs} STATUTS_PROJET={STATUTS_PROJET} />
             </section>
             <section className="fade-in">
               <SprintConfig devs={devs} setDevs={setDevs} sprints={sprints} />
             </section>
             <section className="fade-in">
-              <PlanningView devs={devs} projects={projects} genererPlanning={genererPlanning} setProjects={setProjects} />
+              <PlanningView devs={devs} projects={projects} genererPlanning={genererPlanning} setProjects={setProjects} STATUTS_PROJET={STATUTS_PROJET} />
             </section>
           </div>
         );
@@ -400,11 +409,12 @@
       }
 
       // Saisie des projets
-      function ProjectInput({ projects, setProjects, devs }) {
+      function ProjectInput({ projects, setProjects, devs, STATUTS_PROJET }) {
         const [nom, setNom] = React.useState("");
         const [priorite, setPriorite] = React.useState(1);
         const [points, setPoints] = React.useState(0);
         const [dateDebut, setDateDebut] = React.useState("");
+        const [statut, setStatut] = React.useState("conception");
         const [devsAffectesIds, setDevsAffectesIds] = React.useState([]);
         const [editMode, setEditMode] = React.useState(false);
         const [editId, setEditId] = React.useState(null);
@@ -415,6 +425,7 @@
             const proj = projects.find(p => p.id === editId);
             setDevsAffectesIds(proj && proj.devsAffectesIds ? proj.devsAffectesIds : []);
             setDateDebut(proj && proj.dateDebut ? proj.dateDebut : "");
+            setStatut(proj && proj.statut ? proj.statut : "conception");
           }
         }, [editMode, editId, projects]);
 
@@ -456,6 +467,7 @@
                     nom: nom.trim(),
                     priorite: Number(priorite),
                     points: Number(points),
+                    statut: statut,
                     devsAffectesIds: devsAffectesIds.length > 0 ? devsAffectesIds : undefined,
                     dateDebut: dateDebut || undefined,
                     fini: proj.fini ?? false,
@@ -472,6 +484,7 @@
                 nom: nom.trim(),
                 priorite: Number(priorite),
                 points: Number(points),
+                statut: statut,
                 devsAffectesIds: devsAffectesIds.length > 0 ? devsAffectesIds : undefined,
                 dateDebut: dateDebut || undefined,
                 fini: false,
@@ -481,6 +494,7 @@
           setNom("");
           setPriorite(1);
           setPoints(0);
+          setStatut("conception");
           setDevsAffectesIds([]);
           setDateDebut("");
         }
@@ -489,6 +503,7 @@
           setNom(proj.nom);
           setPriorite(proj.priorite);
           setPoints(proj.points);
+          setStatut(proj.statut || "conception");
           setEditMode(true);
           setEditId(proj.id);
         }
@@ -499,6 +514,7 @@
           setNom("");
           setPriorite(1);
           setPoints(0);
+          setStatut("conception");
           setDevsAffectesIds([]);
           setDateDebut("");
         }
@@ -512,6 +528,7 @@
               setNom("");
               setPriorite(1);
               setPoints(0);
+              setStatut("conception");
               setDevsAffectesIds([]);
               setDateDebut("");
             }
@@ -532,6 +549,14 @@
                 <div className="flex-1">
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Nom du projet</label>
                   <input type="text" className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" value={nom} onChange={e => setNom(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Statut</label>
+                  <select className="w-44 border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" value={statut} onChange={e => setStatut(e.target.value)} required>
+                    {Object.keys(STATUTS_PROJET).map(status => (
+                      <option key={status} value={status}>{STATUTS_PROJET[status].icon} {STATUTS_PROJET[status].label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Date de début</label>
@@ -616,6 +641,9 @@
                   {projetsTries.map(proj => (
                     <li key={proj.id} className="py-2 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
                       <span className="font-medium text-dark">{proj.nom}</span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold border ${STATUTS_PROJET[proj.statut || 'conception']?.color || STATUTS_PROJET['conception'].color}`}>
+                        {STATUTS_PROJET[proj.statut || 'conception']?.icon || STATUTS_PROJET['conception'].icon} {STATUTS_PROJET[proj.statut || 'conception']?.label || STATUTS_PROJET['conception'].label}
+                      </span>
                       <span className="text-sm text-primary font-semibold">Priorité {proj.priorite}</span>
                       <span className="text-xs text-gray-400">{proj.points} pts</span>
                       <span className="text-xs text-gray-500">{(proj.devsAffectesIds && proj.devsAffectesIds.length > 0)
@@ -899,7 +927,7 @@
       }
 
       // Affichage du planning prévisionnel
-      function PlanningView({ devs, projects, genererPlanning, setProjects }) {
+      function PlanningView({ devs, projects, genererPlanning, setProjects, STATUTS_PROJET }) {
         const SPRINT_DAYS = 10;
         if (devs.length === 0 || projects.length === 0) {
           return (
@@ -1097,6 +1125,7 @@
                 <thead>
                   <tr className="bg-gradient-to-r from-primary/80 to-accent/80 text-white">
                     <th className="px-4 py-3 text-left font-bold rounded-tl-2xl">Projet</th>
+                    <th className="px-4 py-3 text-left font-bold">Statut</th>
                     <th className="px-4 py-3 text-left font-bold">Priorité</th>
                     <th className="px-4 py-3 text-left font-bold">Points</th>
                     <th className="px-4 py-3 text-left font-bold">Sprints nécessaires</th>
@@ -1113,6 +1142,11 @@
                       (getFinStatusColor(proj) || (idx % 2 === 0 ? "bg-gray-50" : "bg-white"))
                     }>
                       <td className="px-4 py-3 font-semibold text-dark text-base rounded-l-xl border-b border-gray-200">{proj.nom}</td>
+                      <td className="px-4 py-3 border-b border-gray-200">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold border ${STATUTS_PROJET[proj.statut || 'conception']?.color || STATUTS_PROJET['conception'].color}`}>
+                          {STATUTS_PROJET[proj.statut || 'conception']?.icon || STATUTS_PROJET['conception'].icon} {STATUTS_PROJET[proj.statut || 'conception']?.label || STATUTS_PROJET['conception'].label}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 border-b border-gray-200">
                         <span className={"inline-block px-2 py-1 rounded-full text-xs font-bold " +
                           (proj.priorite === 1 ? "bg-primary/90 text-white" :
