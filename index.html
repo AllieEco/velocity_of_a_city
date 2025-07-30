@@ -1772,12 +1772,12 @@
             
             <div>
               <h3 className="font-semibold mb-4 text-gray-700">Créer un nouveau compte rendu</h3>
-              <form className="space-y-4 mb-6" onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <form className="space-y-6 mb-8" onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-gray-700">Projet</label>
+                    <label className="block text-sm font-semibold mb-2 text-gray-700">Projet</label>
                     <select 
-                      className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" 
+                      className="w-full border-2 border-primary/20 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 transition text-base" 
                       value={selectedProject} 
                       onChange={e => setSelectedProject(e.target.value)} 
                       required
@@ -1789,9 +1789,9 @@
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-gray-700">Type</label>
+                    <label className="block text-sm font-semibold mb-2 text-gray-700">Type</label>
                     <select 
-                      className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" 
+                      className="w-full border-2 border-primary/20 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 transition text-base" 
                       value={type} 
                       onChange={e => setType(e.target.value)} 
                       required
@@ -1804,19 +1804,19 @@
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-gray-700">Date</label>
+                    <label className="block text-sm font-semibold mb-2 text-gray-700">Date</label>
                     <input 
                       type="date" 
-                      className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" 
+                      className="w-full border-2 border-primary/20 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 transition text-base" 
                       value={date} 
                       onChange={e => setDate(e.target.value)} 
                       required 
                     />
                   </div>
-                  <div className="flex items-end">
+                  <div className="flex flex-col sm:flex-row gap-2 items-end">
                     <button 
                       type="submit" 
-                      className={"w-full px-5 py-2 rounded-lg font-bold text-white shadow transition-all duration-200 " + 
+                      className={"w-full sm:w-auto px-6 py-3 rounded-lg font-bold text-white shadow transition-all duration-200 text-base " + 
                         (editMode ? "bg-primary hover:bg-primary/90" : "bg-accent hover:bg-accent/80")
                       }
                     >
@@ -1825,7 +1825,7 @@
                     {editMode && (
                       <button 
                         type="button" 
-                        className="ml-2 px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition" 
+                        className="w-full sm:w-auto px-4 py-3 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition text-base" 
                         onClick={handleCancelEdit}
                       >
                         Annuler
@@ -1834,10 +1834,10 @@
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-1 text-gray-700">Titre</label>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">Titre</label>
                   <input 
                     type="text" 
-                    className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" 
+                    className="w-full border-2 border-primary/20 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 transition text-base" 
                     value={titre} 
                     onChange={e => setTitre(e.target.value)} 
                     placeholder="Titre du compte rendu..." 
@@ -1845,13 +1845,14 @@
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-1 text-gray-700">Contenu</label>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">Contenu</label>
                   <textarea 
-                    className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition min-h-[120px] resize-y" 
+                    className="w-full border-2 border-primary/20 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 transition min-h-[200px] resize-y text-base leading-relaxed" 
                     value={contenu} 
                     onChange={e => setContenu(e.target.value)} 
                     placeholder="Détails du compte rendu..." 
                     required 
+                    style={{ lineHeight: '1.6' }}
                   />
                 </div>
               </form>
@@ -1912,7 +1913,7 @@
                       </div>
                       <h4 className="font-semibold text-dark mb-1">{cr.titre}</h4>
                       <p className="text-sm text-gray-600 mb-2">Projet : <span className="font-medium text-primary">{cr.projetNom}</span></p>
-                      <div className="text-sm text-gray-700 whitespace-pre-wrap">{cr.contenu}</div>
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed" style={{ lineHeight: '1.6' }}>{cr.contenu}</div>
                     </div>
                   ))}
                 </div>
