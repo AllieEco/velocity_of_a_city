@@ -1521,7 +1521,19 @@
     return null;
   })()}
 </td>
-                      <td className="px-4 py-3 border-b border-gray-200 text-gray-700">{proj.devsAffectes.join(", ")}</td>
+                      <td className="px-4 py-3 border-b border-gray-200 text-gray-700">
+                        {(() => {
+                          // Si le projet a des développeurs spécifiquement affectés, les afficher
+                          if (proj.devsAffectesIds && proj.devsAffectesIds.length > 0) {
+                            return devs
+                              .filter(dev => proj.devsAffectesIds.includes(dev.id))
+                              .map(dev => `${dev.prenom} ${dev.nom}`)
+                              .join(", ");
+                          }
+                          // Sinon, afficher tous les développeurs (comportement par défaut)
+                          return devs.map(dev => `${dev.prenom} ${dev.nom}`).join(", ");
+                        })()}
+                      </td>
                       <td className="px-4 py-3 border-b border-gray-200 rounded-r-xl">
                         {proj.fini ? (
                           <span className="inline-block px-3 py-1 rounded-full bg-green-600/90 text-white text-xs font-bold">Livré</span>
