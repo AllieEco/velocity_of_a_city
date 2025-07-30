@@ -1630,6 +1630,50 @@
           setEditId(cr.id);
         }
 
+        function handleSubmit(e) {
+          e.preventDefault();
+          if (!selectedProject || !titre.trim() || !contenu.trim()) return;
+
+          const selectedProj = projects.find(p => p.id === Number(selectedProject));
+          
+          if (editMode && editId !== null) {
+            setCompteRendus(prev => prev.map(cr =>
+              cr.id === editId
+                ? {
+                    ...cr,
+                    projetId: Number(selectedProject),
+                    projetNom: selectedProj.nom,
+                    titre: titre.trim(),
+                    contenu: contenu.trim(),
+                    date,
+                    type
+                  }
+                : cr
+            ));
+            setEditMode(false);
+            setEditId(null);
+          } else {
+            setCompteRendus(prev => [
+              ...prev,
+              {
+                id: Date.now(),
+                projetId: Number(selectedProject),
+                projetNom: selectedProj.nom,
+                titre: titre.trim(),
+                contenu: contenu.trim(),
+                date,
+                type
+              }
+            ]);
+          }
+
+          setSelectedProject("");
+          setTitre("");
+          setContenu("");
+          setDate(new Date().toISOString().split('T')[0]);
+          setType("reunion");
+        }
+
         function handleCancelEdit() {
           setEditMode(false);
           setEditId(null);
@@ -1727,6 +1771,91 @@
             </h2>
             
             <div>
+              <h3 className="font-semibold mb-4 text-gray-700">Créer un nouveau compte rendu</h3>
+              <form className="space-y-4 mb-6" onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-gray-700">Projet</label>
+                    <select 
+                      className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" 
+                      value={selectedProject} 
+                      onChange={e => setSelectedProject(e.target.value)} 
+                      required
+                    >
+                      <option value="">Choisir un projet…</option>
+                      {projects.map(proj => (
+                        <option key={proj.id} value={proj.id}>{proj.nom}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-gray-700">Type</label>
+                    <select 
+                      className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" 
+                      value={type} 
+                      onChange={e => setType(e.target.value)} 
+                      required
+                    >
+                      {Object.keys(TYPES_COMPTE_RENDU).map(t => (
+                        <option key={t} value={t}>
+                          {TYPES_COMPTE_RENDU[t].icon} {TYPES_COMPTE_RENDU[t].label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-gray-700">Date</label>
+                    <input 
+                      type="date" 
+                      className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition h-10" 
+                      value={date} 
+                      onChange={e => setDate(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button 
+                      type="submit" 
+                      className={"w-full px-5 py-2 rounded-lg font-bold text-white shadow transition-all duration-200 " + 
+                        (editMode ? "bg-primary hover:bg-primary/90" : "bg-accent hover:bg-accent/80")
+                      }
+                    >
+                      {editMode ? "Modifier" : "Créer"}
+                    </button>
+                    {editMode && (
+                      <button 
+                        type="button" 
+                        className="ml-2 px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition" 
+                        onClick={handleCancelEdit}
+                      >
+                        Annuler
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Titre</label>
+                  <input 
+                    type="text" 
+                    className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" 
+                    value={titre} 
+                    onChange={e => setTitre(e.target.value)} 
+                    placeholder="Titre du compte rendu..." 
+                    required 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Contenu</label>
+                  <textarea 
+                    className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition min-h-[120px] resize-y" 
+                    value={contenu} 
+                    onChange={e => setContenu(e.target.value)} 
+                    placeholder="Détails du compte rendu..." 
+                    required 
+                  />
+                </div>
+              </form>
+
               <h3 className="font-semibold mb-4 text-gray-700">Comptes rendus existants</h3>
               {compteRendusTries.length === 0 ? (
                 <div className="text-gray-400 italic">Aucun compte rendu créé.</div>
