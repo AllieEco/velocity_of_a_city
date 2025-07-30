@@ -143,39 +143,104 @@
           const projetsTries = [...projects].sort((a, b) => a.priorite - b.priorite);
           let sprintIndex = 0;
           let projetsRestants = projetsTries.map(p => ({ ...p, pointsRestants: p.points, debut: null, fin: null, sprints: 0, devsAffectes: [] }));
-          let devsState = devs.map(dev => ({ ...dev }));
 
-          // On boucle tant qu’il reste des projets à finir
+          // On boucle tant qu'il reste des projets à finir
           while (projetsRestants.some(p => p.pointsRestants > 0)) {
-            // Pour chaque projet, dans l’ordre de priorité
-            for (let projet of projetsRestants) {
+            // Réinitialiser les points disponibles pour ce sprint
+            let devsState = devs.map(dev => ({
+              ...dev,
+              pointsDispo: getPointsDispo(dev, sprintIndex)
+            }));
+
+            // Première passe : identifier tous les projets actifs ce sprint
+            let projetsActifs = projetsRestants.filter(p => p.pointsRestants > 0);
+            
+            // Deuxième passe : répartition intelligente basée sur les priorités
+            for (let projet of projetsActifs) {
               if (projet.pointsRestants <= 0) continue;
               if (projet.debut === null) projet.debut = sprintIndex;
               let pointsAffectes = 0;
+              
               // Déterminer les devs à utiliser pour ce projet
               let devsPourProjet = Array.isArray(projet.devsAffectesIds) && projet.devsAffectesIds.length > 0
                 ? devsState.filter(d => projet.devsAffectesIds.includes(d.id))
                 : devsState;
-              // Capacité dispo ce sprint pour ces devs
-              const dispoSprint = devsPourProjet.map(dev => ({
-                ...dev,
-                pointsDispo: getPointsDispo(dev, sprintIndex),
-              }));
-              // Répartition sur les devs affectés
-              for (let dev of dispoSprint) {
+              
+              // Répartition intelligente sur les devs affectés
+              for (let dev of devsPourProjet) {
                 if (dev.pointsDispo <= 0 || projet.pointsRestants <= 0) continue;
-                const pointsPourCeDev = Math.min(dev.pointsDispo, projet.pointsRestants);
+                
+                // Identifier tous les projets actifs sur ce dev
+                let projetsSurCeDev = projetsActifs.filter(p => {
+                  if (p.pointsRestants <= 0) return false;
+                  let devsDuProjet = Array.isArray(p.devsAffectesIds) && p.devsAffectesIds.length > 0
+                    ? devsState.filter(d => p.devsAffectesIds.includes(d.id))
+                    : devsState;
+                  return devsDuProjet.some(d => d.id === dev.id);
+                });
+                
+                // Grouper les projets par priorité
+                let projetsParPriorite = {};
+                projetsSurCeDev.forEach(p => {
+                  if (!projetsParPriorite[p.priorite]) {
+                    projetsParPriorite[p.priorite] = [];
+                  }
+                  projetsParPriorite[p.priorite].push(p);
+                });
+                
+                let pointsPourCeDev = 0;
+                const priorites = Object.keys(projetsParPriorite).map(Number).sort((a, b) => a - b);
+                
+                // Logique de répartition basée sur les priorités
+                if (priorites.length === 1) {
+                  // Même priorité : répartition équitable
+                  const nbProjets = projetsParPriorite[priorites[0]].length;
+                  pointsPourCeDev = Math.floor(dev.pointsDispo / nbProjets);
+                } else if (priorites.length === 2) {
+                  const prioriteHaute = priorites[0];
+                  const prioriteBasse = priorites[1];
+                  
+                  if (prioriteHaute === 1 && prioriteBasse === 3) {
+                    // Priorité 1 vs 3 : séquentiel (priorité 1 d'abord)
+                    if (projet.priorite === 1) {
+                      pointsPourCeDev = dev.pointsDispo; // 100% pour priorité 1
+                    } else {
+                      pointsPourCeDev = 0; // 0% pour priorité 3 (attendre)
+                    }
+                  } else {
+                    // Autres cas : 80/20
+                    if (projet.priorite === prioriteHaute) {
+                      pointsPourCeDev = Math.floor(dev.pointsDispo * 0.8);
+                    } else {
+                      pointsPourCeDev = Math.floor(dev.pointsDispo * 0.2);
+                    }
+                  }
+                } else {
+                  // Plus de 2 priorités : priorité la plus haute d'abord
+                  const prioriteMin = Math.min(...priorites);
+                  if (projet.priorite === prioriteMin) {
+                    pointsPourCeDev = dev.pointsDispo; // 100% pour priorité la plus haute
+                  } else {
+                    pointsPourCeDev = 0; // 0% pour les autres (attendre)
+                  }
+                }
+                
+                // Appliquer les limites
+                pointsPourCeDev = Math.min(pointsPourCeDev, projet.pointsRestants, dev.pointsDispo);
+                
                 dev.pointsDispo -= pointsPourCeDev;
                 projet.pointsRestants -= pointsPourCeDev;
                 pointsAffectes += pointsPourCeDev;
                 if (!projet.devsAffectes.includes(dev.nom)) projet.devsAffectes.push(dev.nom);
               }
+              
               if (pointsAffectes > 0) projet.sprints++;
               if (projet.pointsRestants <= 0 && projet.fin === null) projet.fin = sprintIndex;
             }
             sprintIndex++;
           }
-          // Ajout d’une marge de 1 sprint par projet
+          
+          // Ajout d'une marge de 1 sprint par projet
           for (let projet of projetsRestants) {
             projet.sprints += 1;
             projet.fin = (projet.fin ?? 0) + 1;
@@ -875,12 +940,29 @@
           setModalDate("");
         }
 
-        // Calcule la date de fin prévisionnelle
+        // Calcule la date de fin prévisionnelle (statique - calculée à la création)
         function getDateFin(proj) {
           if (!proj.dateDebut) return "-";
           const d = new Date(proj.dateDebut);
           // On considère 1 sprint = SPRINT_DAYS jours ouvrés (on ajoute 2 jours par sprint pour simuler les week-ends)
           const totalDays = proj.sprints * (SPRINT_DAYS + 2);
+          d.setDate(d.getDate() + totalDays);
+          return d.toLocaleDateString('fr-FR');
+        }
+
+        // Calcule la date de fin prévisionnelle corrigée (dynamique - recalculée à chaque modification)
+        function getDateFinCorrigee(proj) {
+          if (!proj.dateDebut) return "-";
+          
+          // Générer le planning actuel avec toutes les modifications
+          const planningActuel = genererPlanning(devs, projects);
+          const projetActuel = planningActuel.find(p => p.id === proj.id);
+          
+          if (!projetActuel) return "-";
+          
+          const d = new Date(proj.dateDebut);
+          // On considère 1 sprint = SPRINT_DAYS jours ouvrés (on ajoute 2 jours par sprint pour simuler les week-ends)
+          const totalDays = projetActuel.sprints * (SPRINT_DAYS + 2);
           d.setDate(d.getDate() + totalDays);
           return d.toLocaleDateString('fr-FR');
         }
@@ -997,9 +1079,8 @@
                     <th className="px-4 py-3 text-left font-bold">Priorité</th>
                     <th className="px-4 py-3 text-left font-bold">Points</th>
                     <th className="px-4 py-3 text-left font-bold">Sprints nécessaires</th>
-                    <th className="px-4 py-3 text-left font-bold">Sprint début</th>
-                    <th className="px-4 py-3 text-left font-bold">Sprint fin</th>
                     <th className="px-4 py-3 text-left font-bold">Date de fin prévisionnelle</th>
+                    <th className="px-4 py-3 text-left font-bold">Date corrigée</th>
                     <th className="px-4 py-3 text-left font-bold">Devs affectés</th>
                     <th className="px-4 py-3 text-left font-bold rounded-tr-2xl">Fini ?</th>
                   </tr>
@@ -1022,13 +1103,32 @@
                       </td>
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700 font-medium">{proj.points}</td>
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700 font-medium">{proj.sprints}</td>
-                      <td className="px-4 py-3 border-b border-gray-200 text-gray-700">{proj.debut + 1}</td>
-                      <td className="px-4 py-3 border-b border-gray-200 text-gray-700">{proj.fin + 1}</td>
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700 whitespace-nowrap">{getDateFin(proj)}
   {/* Affichage du retard en mois si projet en retard */}
   {(() => {
     if (proj.fini) return null;
     const dateFinStr = getDateFin(proj);
+    if (!dateFinStr || dateFinStr === '-') return null;
+    const [jour, mois, annee] = dateFinStr.split('/').map(Number);
+    const dateFin = new Date(annee, mois - 1, jour);
+    const now = new Date();
+    dateFin.setHours(0,0,0,0);
+    now.setHours(0,0,0,0);
+    const diffJours = Math.ceil((now - dateFin) / (1000 * 60 * 60 * 24));
+    if (diffJours > 0) {
+      const moisRetard = Math.ceil(diffJours / 30);
+      return (
+        <div className="text-xs text-red-600 font-bold mt-1">{moisRetard} mois de retard</div>
+      );
+    }
+    return null;
+  })()}
+</td>
+                      <td className="px-4 py-3 border-b border-gray-200 text-gray-700 whitespace-nowrap">{getDateFinCorrigee(proj)}
+  {/* Affichage du retard en mois si projet en retard (date corrigée) */}
+  {(() => {
+    if (proj.fini) return null;
+    const dateFinStr = getDateFinCorrigee(proj);
     if (!dateFinStr || dateFinStr === '-') return null;
     const [jour, mois, annee] = dateFinStr.split('/').map(Number);
     const dateFin = new Date(annee, mois - 1, jour);
