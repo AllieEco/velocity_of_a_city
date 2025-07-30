@@ -190,7 +190,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 Si vous avez des questions ou des suggestions :
 
 - **Issues** : [GitHub Issues](https://github.com/votre-username/velocity-of-a-city/issues)
-- **Email** : contact@velocity-of-a-city.com
+- **Email** : a.capslock@proton.me
 - **Documentation** : [Wiki du projet](https://github.com/votre-username/velocity-of-a-city/wiki)
 
 ---
