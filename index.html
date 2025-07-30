@@ -909,7 +909,7 @@
       function Modal({ open, onClose, onConfirm, message, requireDate, onDateChange, dateValue }) {
         if (!open) return null;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
             <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-xs w-full text-center animate-fade-in">
               <div className="mb-6 text-lg font-semibold text-dark">{message}</div>
               {requireDate && (
@@ -974,7 +974,7 @@
 
         if (!open || !projet) return null;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-fade-in">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold font-display text-primary mb-2">Compte rendu du projet</h2>
