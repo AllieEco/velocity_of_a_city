@@ -53,11 +53,16 @@
         left: 0 !important;
         right: 0 !important;
         bottom: 0 !important;
+        background-color: rgba(0, 0, 0, 0.8) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
       }
       
       .modal-content {
-        z-index: 999999 !important;
+        z-index: 1000000 !important;
         position: relative !important;
+        background: white !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
       }
       .fade-in {
         animation: fadeIn 1s cubic-bezier(.39,.575,.565,1) both;
@@ -146,9 +151,115 @@
         React.useEffect(() => { saveLS('projects', projects); }, [projects]);
         React.useEffect(() => { saveLS('sprints', sprints); }, [sprints]);
 
+        // État des modales au niveau racine
+        const [modalOpen, setModalOpen] = React.useState(false);
+        const [modalTarget, setModalTarget] = React.useState(null); // {id, fini}
+        const [modalDate, setModalDate] = React.useState("");
+        const [modalCompteRenduOpen, setModalCompteRenduOpen] = React.useState(false);
+        const [projetPourCompteRendu, setProjetPourCompteRendu] = React.useState(null);
+
         // absences: { [sprintIndex]: nbJours }
 
         // === 3. Fonctions utilitaires ===
+
+        // Fonctions de gestion des modales
+        function handleToggleFini(projId) {
+          const proj = projects.find(p => p.id === projId);
+          if (!proj) return;
+          
+          if (!proj.fini) {
+            // Si on marque comme fini, ouvrir la modal de compte rendu
+            setProjetPourCompteRendu(proj);
+            setModalCompteRenduOpen(true);
+          } else {
+            // Si on remet en non fini, utiliser l'ancienne modal
+            setModalTarget({ id: projId, fini: proj.fini });
+            setModalDate("");
+            setModalOpen(true);
+          }
+        }
+
+        function handleCompteRenduConfirm(compteRenduData) {
+          if (projetPourCompteRendu) {
+            // Marquer le projet comme fini
+            setProjects(projects => projects.map(p => {
+              if (p.id === projetPourCompteRendu.id) {
+                const planning = genererPlanning(devs, projects);
+                const planProj = planning.find(pl => pl.id === p.id);
+                return { 
+                  ...p, 
+                  fini: true, 
+                  statut: 'deploy',
+                  dateFin: compteRenduData.dateRendu, 
+                  sprints: planProj ? planProj.sprints : p.sprints 
+                };
+              }
+              return p;
+            }));
+
+            // Créer le compte rendu automatique
+            const nouveauCompteRendu = {
+              id: Date.now(),
+              projetId: projetPourCompteRendu.id,
+              projetNom: projetPourCompteRendu.nom,
+              titre: `Compte rendu final - ${projetPourCompteRendu.nom}`,
+              contenu: `RÉSUMÉ DU PROJET:\n${compteRenduData.resume}\n\nCE QUI A MARCHÉ:\n${compteRenduData.ceQuiAMarche}\n\nCE QUI A MOINS BIEN MARCHÉ:\n${compteRenduData.ceQuiAMoinsMarche}\n\nAMÉLIORATIONS À APPORTER:\n${compteRenduData.ameliorations}`,
+              date: compteRenduData.dateRendu,
+              type: 'livraison',
+              isCompteRenduFinal: true,
+              compteRenduData: compteRenduData
+            };
+
+            // Ajouter au localStorage des comptes rendus
+            const compteRendusExistants = JSON.parse(localStorage.getItem('compteRendus') || '[]');
+            compteRendusExistants.push(nouveauCompteRendu);
+            localStorage.setItem('compteRendus', JSON.stringify(compteRendusExistants));
+
+            // Forcer la mise à jour du composant CompteRenduProjet
+            if (window.addCompteRendu) {
+              window.addCompteRendu(nouveauCompteRendu);
+            }
+          }
+          
+          setModalCompteRenduOpen(false);
+          setProjetPourCompteRendu(null);
+        }
+
+        function handleCompteRenduClose() {
+          setModalCompteRenduOpen(false);
+          setProjetPourCompteRendu(null);
+        }
+
+        function handleModalConfirm() {
+          if (modalTarget) {
+            setProjects(projects => projects.map(p => {
+              if (p.id === modalTarget.id) {
+                // Si on marque comme fini, on enregistre la date de livraison ET le nombre de sprints nécessaires
+                if (!modalTarget.fini && modalDate) {
+                  // On récupère le planning courant pour ce projet
+                  const planning = genererPlanning(devs, projects);
+                  const planProj = planning.find(pl => pl.id === p.id);
+                  return { ...p, fini: true, dateFin: modalDate, sprints: planProj ? planProj.sprints : p.sprints };
+                }
+                // Si on remet en non fini, on efface la date de livraison et le champ sprints
+                if (modalTarget.fini) {
+                  const { dateFin, sprints, ...rest } = p;
+                  return { ...rest, fini: false, statut: p.statut === 'deploy' ? 'review' : p.statut };
+                }
+              }
+              return p;
+            }));
+          }
+          setModalOpen(false);
+          setModalTarget(null);
+          setModalDate("");
+        }
+
+        function handleModalClose() {
+          setModalOpen(false);
+          setModalTarget(null);
+          setModalDate("");
+        }
 
         // Calcule les points disponibles pour un dev sur un sprint donné
         function getPointsDispo(dev, sprintIndex) {
@@ -279,34 +390,61 @@
         // const planning = genererPlanning(devs, projects);
 
         return (
-          <div className="space-y-12">
-            <section className="fade-in">
-              <SprintList sprints={sprints} setSprints={setSprints} />
-            </section>
-            <section className="fade-in">
-              <DevInput devs={devs} setDevs={setDevs} POINTS_PAR_STATUT={POINTS_PAR_STATUT} />
-            </section>
-            <section className="fade-in">
-              <ProjectInput projects={projects} setProjects={setProjects} devs={devs} STATUTS_PROJET={STATUTS_PROJET} />
-            </section>
-            <section className="fade-in">
-              <SprintConfig devs={devs} setDevs={setDevs} sprints={sprints} />
-            </section>
-            <section className="fade-in">
-              <PlanningView devs={devs} projects={projects} genererPlanning={genererPlanning} setProjects={setProjects} STATUTS_PROJET={STATUTS_PROJET} />
-            </section>
-            <section className="fade-in">
-              <CompteRenduProjet 
-                projects={projects} 
-                devs={devs} 
-                STATUTS_PROJET={STATUTS_PROJET}
-                onCompteRenduAdded={(nouveauCompteRendu) => {
-                  // Cette fonction sera appelée quand un nouveau compte rendu est ajouté
-                  // Elle permettra de forcer la mise à jour du composant
-                }}
-              />
-            </section>
-          </div>
+          <>
+            <div className="space-y-12">
+              <section className="fade-in">
+                <SprintList sprints={sprints} setSprints={setSprints} />
+              </section>
+              <section className="fade-in">
+                <DevInput devs={devs} setDevs={setDevs} POINTS_PAR_STATUT={POINTS_PAR_STATUT} />
+              </section>
+              <section className="fade-in">
+                <ProjectInput projects={projects} setProjects={setProjects} devs={devs} STATUTS_PROJET={STATUTS_PROJET} />
+              </section>
+              <section className="fade-in">
+                <SprintConfig devs={devs} setDevs={setDevs} sprints={sprints} />
+              </section>
+              <section className="fade-in">
+                <PlanningView 
+                  devs={devs} 
+                  projects={projects} 
+                  genererPlanning={genererPlanning} 
+                  setProjects={setProjects} 
+                  STATUTS_PROJET={STATUTS_PROJET}
+                  onToggleFini={handleToggleFini}
+                />
+              </section>
+              <section className="fade-in">
+                <CompteRenduProjet 
+                  projects={projects} 
+                  devs={devs} 
+                  STATUTS_PROJET={STATUTS_PROJET}
+                  onCompteRenduAdded={(nouveauCompteRendu) => {
+                    // Cette fonction sera appelée quand un nouveau compte rendu est ajouté
+                    // Elle permettra de forcer la mise à jour du composant
+                  }}
+                />
+              </section>
+            </div>
+            
+            {/* Modales au niveau racine */}
+            <Modal
+              open={modalOpen}
+              onClose={handleModalClose}
+              onConfirm={handleModalConfirm}
+              message={modalTarget && (modalTarget.fini ? 'Marquer ce projet comme non fini ?' : 'Marquer ce projet comme fini ?')}
+              requireDate={modalTarget && !modalTarget.fini}
+              dateValue={modalDate}
+              onDateChange={setModalDate}
+            />
+            <ModalCompteRendu
+              open={modalCompteRenduOpen}
+              onClose={handleCompteRenduClose}
+              onConfirm={handleCompteRenduConfirm}
+              projet={projetPourCompteRendu}
+              STATUTS_PROJET={STATUTS_PROJET}
+            />
+          </>
         );
       }
 
@@ -925,9 +1063,8 @@
         if (!open) return null;
         return (
           <div 
-            className="modal-overlay fixed inset-0 flex items-center justify-center bg-black/90" 
+            className="modal-overlay fixed inset-0 flex items-center justify-center" 
             style={{ 
-              backdropFilter: 'blur(10px)',
               isolation: 'isolate'
             }}
             onClick={(e) => {
@@ -936,7 +1073,7 @@
               }
             }}
           >
-            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-xs w-full text-center animate-fade-in">
+            <div className="modal-content bg-white rounded-2xl shadow-2xl p-8 max-w-xs w-full text-center animate-fade-in">
               <div className="mb-6 text-lg font-semibold text-dark">{message}</div>
               {requireDate && (
                 <div className="mb-4">
@@ -1001,9 +1138,8 @@
         if (!open || !projet) return null;
         return (
           <div 
-            className="modal-overlay fixed inset-0 flex items-center justify-center bg-black/90 p-4" 
+            className="modal-overlay fixed inset-0 flex items-center justify-center p-4" 
             style={{ 
-              backdropFilter: 'blur(10px)',
               isolation: 'isolate'
             }}
             onClick={(e) => {
@@ -1128,7 +1264,7 @@
       }
 
       // Affichage du planning prévisionnel
-      function PlanningView({ devs, projects, genererPlanning, setProjects, STATUTS_PROJET }) {
+      function PlanningView({ devs, projects, genererPlanning, setProjects, STATUTS_PROJET, onToggleFini }) {
         const SPRINT_DAYS = 10;
         if (devs.length === 0 || projects.length === 0) {
           return (
@@ -1148,109 +1284,7 @@
         const projectsById = Object.fromEntries(projects.map(p => [p.id, p]));
         const planningWithFini = planning.map(p => ({ ...p, fini: projectsById[p.id]?.fini ?? false }));
 
-        // Handler pour changer l'état fini
-        const [modalOpen, setModalOpen] = React.useState(false);
-        const [modalTarget, setModalTarget] = React.useState(null); // {id, fini}
-        const [modalDate, setModalDate] = React.useState("");
-        const [modalCompteRenduOpen, setModalCompteRenduOpen] = React.useState(false);
-        const [projetPourCompteRendu, setProjetPourCompteRendu] = React.useState(null);
 
-        function handleToggleFini(projId) {
-          const proj = projects.find(p => p.id === projId);
-          if (!proj) return;
-          
-          if (!proj.fini) {
-            // Si on marque comme fini, ouvrir la modal de compte rendu
-            setProjetPourCompteRendu(proj);
-            setModalCompteRenduOpen(true);
-          } else {
-            // Si on remet en non fini, utiliser l'ancienne modal
-            setModalTarget({ id: projId, fini: proj.fini });
-            setModalDate("");
-            setModalOpen(true);
-          }
-        }
-
-        function handleCompteRenduConfirm(compteRenduData) {
-          if (projetPourCompteRendu) {
-            // Marquer le projet comme fini
-            setProjects(projects => projects.map(p => {
-              if (p.id === projetPourCompteRendu.id) {
-                const planning = genererPlanning(devs, projects);
-                const planProj = planning.find(pl => pl.id === p.id);
-                return { 
-                  ...p, 
-                  fini: true, 
-                  statut: 'deploy',
-                  dateFin: compteRenduData.dateRendu, 
-                  sprints: planProj ? planProj.sprints : p.sprints 
-                };
-              }
-              return p;
-            }));
-
-            // Créer le compte rendu automatique
-            const nouveauCompteRendu = {
-              id: Date.now(),
-              projetId: projetPourCompteRendu.id,
-              projetNom: projetPourCompteRendu.nom,
-              titre: `Compte rendu final - ${projetPourCompteRendu.nom}`,
-              contenu: `RÉSUMÉ DU PROJET:\n${compteRenduData.resume}\n\nCE QUI A MARCHÉ:\n${compteRenduData.ceQuiAMarche}\n\nCE QUI A MOINS BIEN MARCHÉ:\n${compteRenduData.ceQuiAMoinsMarche}\n\nAMÉLIORATIONS À APPORTER:\n${compteRenduData.ameliorations}`,
-              date: compteRenduData.dateRendu,
-              type: 'livraison',
-              isCompteRenduFinal: true,
-              compteRenduData: compteRenduData
-            };
-
-            // Ajouter au localStorage des comptes rendus
-            const compteRendusExistants = JSON.parse(localStorage.getItem('compteRendus') || '[]');
-            compteRendusExistants.push(nouveauCompteRendu);
-            localStorage.setItem('compteRendus', JSON.stringify(compteRendusExistants));
-
-            // Forcer la mise à jour du composant CompteRenduProjet
-            if (window.addCompteRendu) {
-              window.addCompteRendu(nouveauCompteRendu);
-            }
-          }
-          
-          setModalCompteRenduOpen(false);
-          setProjetPourCompteRendu(null);
-        }
-
-        function handleCompteRenduClose() {
-          setModalCompteRenduOpen(false);
-          setProjetPourCompteRendu(null);
-        }
-
-        function handleModalConfirm() {
-          if (modalTarget) {
-            setProjects(projects => projects.map(p => {
-              if (p.id === modalTarget.id) {
-                // Si on marque comme fini, on enregistre la date de livraison ET le nombre de sprints nécessaires
-                if (!modalTarget.fini && modalDate) {
-                  // On récupère le planning courant pour ce projet
-                  const planning = genererPlanning(devs, projects);
-                  const planProj = planning.find(pl => pl.id === p.id);
-                  return { ...p, fini: true, dateFin: modalDate, sprints: planProj ? planProj.sprints : p.sprints };
-                }
-                // Si on remet en non fini, on efface la date de livraison et le champ sprints
-                if (modalTarget.fini) {
-                  const { dateFin, sprints, ...rest } = p;
-                  return { ...rest, fini: false, statut: p.statut === 'deploy' ? 'review' : p.statut };
-                }
-              }
-              return p;
-            }));
-          }
-          setModalOpen(false);
-          setModalTarget(null);
-          setModalDate("");
-        }
-        function handleModalClose() {
-          setModalOpen(false);
-          setModalTarget(null);
-          setModalDate("");
-        }
 
         // Fonction pour générer le PDF
         function genererPDF(compteRendu, projet) {
@@ -1540,7 +1574,7 @@
                               "px-3 py-1 rounded-full text-xs font-bold border-2 transition " +
                               "border-accent text-accent bg-accent/10 hover:bg-accent/20"
                             }
-                            onClick={() => handleToggleFini(proj.id)}
+                            onClick={() => onToggleFini(proj.id)}
                           >
                             Fini ?
                           </button>
@@ -1551,22 +1585,6 @@
                 </tbody>
               </table>
             </div>
-            <Modal
-              open={modalOpen}
-              onClose={handleModalClose}
-              onConfirm={handleModalConfirm}
-              message={modalTarget && (modalTarget.fini ? 'Marquer ce projet comme non fini ?' : 'Marquer ce projet comme fini ?')}
-              requireDate={modalTarget && !modalTarget.fini}
-              dateValue={modalDate}
-              onDateChange={setModalDate}
-            />
-            <ModalCompteRendu
-              open={modalCompteRenduOpen}
-              onClose={handleCompteRenduClose}
-              onConfirm={handleCompteRenduConfirm}
-              projet={projetPourCompteRendu}
-              STATUTS_PROJET={STATUTS_PROJET}
-            />
             <div className="text-xs text-gray-500 mt-2">* 1 sprint de marge est ajouté automatiquement à chaque projet.</div>
           </section>
         );
