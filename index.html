@@ -44,6 +44,21 @@
         background: linear-gradient(135deg, #f3e8ff 0%, #f9fafb 100%);
         min-height: 100vh;
       }
+      
+      /* Force les modals au-dessus de tout */
+      .modal-overlay {
+        z-index: 999999 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+      }
+      
+      .modal-content {
+        z-index: 999999 !important;
+        position: relative !important;
+      }
       .fade-in {
         animation: fadeIn 1s cubic-bezier(.39,.575,.565,1) both;
       }
@@ -910,15 +925,10 @@
         if (!open) return null;
         return (
           <div 
-            className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80" 
+            className="modal-overlay fixed inset-0 flex items-center justify-center bg-black/90" 
             style={{ 
-              backdropFilter: 'blur(8px)',
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 999999
+              backdropFilter: 'blur(10px)',
+              isolation: 'isolate'
             }}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
@@ -991,15 +1001,10 @@
         if (!open || !projet) return null;
         return (
           <div 
-            className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 p-4" 
+            className="modal-overlay fixed inset-0 flex items-center justify-center bg-black/90 p-4" 
             style={{ 
-              backdropFilter: 'blur(8px)',
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 999999
+              backdropFilter: 'blur(10px)',
+              isolation: 'isolate'
             }}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
@@ -1008,8 +1013,7 @@
             }}
           >
             <div 
-              className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-fade-in"
-              style={{ zIndex: 999999 }}
+              className="modal-content bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-fade-in"
             >
               <div className="mb-6">
                 <h2 className="text-2xl font-bold font-display text-primary mb-2">Compte rendu du projet</h2>
