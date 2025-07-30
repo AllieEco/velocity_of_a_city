@@ -36,6 +36,8 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- Babel pour JSX inline -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- jsPDF pour génération de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
       body {
         font-family: 'Inter', sans-serif;
@@ -277,6 +279,9 @@
             </section>
             <section className="fade-in">
               <PlanningView devs={devs} projects={projects} genererPlanning={genererPlanning} setProjects={setProjects} STATUTS_PROJET={STATUTS_PROJET} />
+            </section>
+            <section className="fade-in">
+              <CompteRenduProjet projects={projects} devs={devs} STATUTS_PROJET={STATUTS_PROJET} />
             </section>
           </div>
         );
@@ -926,6 +931,155 @@
         );
       }
 
+      // 2. Composant Modal Compte Rendu
+      function ModalCompteRendu({ open, onClose, onConfirm, projet, STATUTS_PROJET }) {
+        const [resume, setResume] = React.useState("");
+        const [ceQuiAMarche, setCeQuiAMarche] = React.useState("");
+        const [ceQuiAMoinsMarche, setCeQuiAMoinsMarche] = React.useState("");
+        const [ameliorations, setAmeliorations] = React.useState("");
+        const [dateRendu, setDateRendu] = React.useState(new Date().toISOString().split('T')[0]);
+
+        // Réinitialiser les champs quand la modal s'ouvre
+        React.useEffect(() => {
+          if (open && projet) {
+            setResume("");
+            setCeQuiAMarche("");
+            setCeQuiAMoinsMarche("");
+            setAmeliorations("");
+            setDateRendu(new Date().toISOString().split('T')[0]);
+          }
+        }, [open, projet]);
+
+        function handleConfirm() {
+          if (!resume.trim() || !ceQuiAMarche.trim() || !ceQuiAMoinsMarche.trim() || !ameliorations.trim() || !dateRendu) {
+            alert("Veuillez remplir tous les champs du compte rendu.");
+            return;
+          }
+          onConfirm({
+            resume: resume.trim(),
+            ceQuiAMarche: ceQuiAMarche.trim(),
+            ceQuiAMoinsMarche: ceQuiAMoinsMarche.trim(),
+            ameliorations: ameliorations.trim(),
+            dateRendu: dateRendu
+          });
+        }
+
+        if (!open || !projet) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-fade-in">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold font-display text-primary mb-2">Compte rendu du projet</h2>
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-dark mb-2">Résumé du projet</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-700">Nom :</span> {projet.nom}
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Statut :</span> 
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold border ml-2 ${STATUTS_PROJET[projet.statut || 'conception']?.color || STATUTS_PROJET['conception'].color}`}>
+                        {STATUTS_PROJET[projet.statut || 'conception']?.icon || STATUTS_PROJET['conception'].icon} {STATUTS_PROJET[projet.statut || 'conception']?.label || STATUTS_PROJET['conception'].label}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Priorité :</span> {projet.priorite}
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Points estimés :</span> {projet.points}
+                    </div>
+                    {projet.dateDebut && (
+                      <div>
+                        <span className="font-medium text-gray-700">Date de début :</span> {new Date(projet.dateDebut).toLocaleDateString('fr-FR')}
+                      </div>
+                    )}
+                    {projet.devsAffectesIds && projet.devsAffectesIds.length > 0 && (
+                      <div>
+                        <span className="font-medium text-gray-700">Développeurs :</span> {projet.devsAffectesIds.map(id => {
+                          const dev = window.devs?.find(d => d.id === id);
+                          return dev ? `${dev.prenom} ${dev.nom}` : '';
+                        }).filter(Boolean).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">Date de rendu *</label>
+                  <input 
+                    type="date" 
+                    className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition" 
+                    value={dateRendu} 
+                    onChange={e => setDateRendu(e.target.value)} 
+                    required 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">Résumé du projet *</label>
+                  <textarea 
+                    className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition min-h-[100px] resize-y" 
+                    value={resume} 
+                    onChange={e => setResume(e.target.value)} 
+                    placeholder="Décrivez brièvement le projet, ses objectifs et son contexte..." 
+                    required 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">Ce qui a marché *</label>
+                  <textarea 
+                    className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition min-h-[100px] resize-y" 
+                    value={ceQuiAMarche} 
+                    onChange={e => setCeQuiAMarche(e.target.value)} 
+                    placeholder="Listez les points positifs, les réussites, les bonnes pratiques..." 
+                    required 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">Ce qui a moins bien marché *</label>
+                  <textarea 
+                    className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition min-h-[100px] resize-y" 
+                    value={ceQuiAMoinsMarche} 
+                    onChange={e => setCeQuiAMoinsMarche(e.target.value)} 
+                    placeholder="Identifiez les difficultés rencontrées, les obstacles..." 
+                    required 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">Ce que l'on doit améliorer *</label>
+                  <textarea 
+                    className="w-full border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition min-h-[100px] resize-y" 
+                    value={ameliorations} 
+                    onChange={e => setAmeliorations(e.target.value)} 
+                    placeholder="Proposez des améliorations, des actions à mettre en place..." 
+                    required 
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-center gap-4 mt-8">
+                <button
+                  className="px-6 py-3 rounded-lg font-bold text-white bg-green-500 hover:bg-green-600 transition"
+                  onClick={handleConfirm}
+                >
+                  Valider le compte rendu
+                </button>
+                <button
+                  className="px-6 py-3 rounded-lg font-bold text-gray-700 bg-gray-200 hover:bg-gray-300 transition"
+                  onClick={onClose}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       // Affichage du planning prévisionnel
       function PlanningView({ devs, projects, genererPlanning, setProjects, STATUTS_PROJET }) {
         const SPRINT_DAYS = 10;
@@ -951,14 +1105,71 @@
         const [modalOpen, setModalOpen] = React.useState(false);
         const [modalTarget, setModalTarget] = React.useState(null); // {id, fini}
         const [modalDate, setModalDate] = React.useState("");
+        const [modalCompteRenduOpen, setModalCompteRenduOpen] = React.useState(false);
+        const [projetPourCompteRendu, setProjetPourCompteRendu] = React.useState(null);
 
         function handleToggleFini(projId) {
           const proj = projects.find(p => p.id === projId);
           if (!proj) return;
-          setModalTarget({ id: projId, fini: proj.fini });
-          setModalDate("");
-          setModalOpen(true);
+          
+          if (!proj.fini) {
+            // Si on marque comme fini, ouvrir la modal de compte rendu
+            setProjetPourCompteRendu(proj);
+            setModalCompteRenduOpen(true);
+          } else {
+            // Si on remet en non fini, utiliser l'ancienne modal
+            setModalTarget({ id: projId, fini: proj.fini });
+            setModalDate("");
+            setModalOpen(true);
+          }
         }
+
+        function handleCompteRenduConfirm(compteRenduData) {
+          if (projetPourCompteRendu) {
+            // Marquer le projet comme fini
+            setProjects(projects => projects.map(p => {
+              if (p.id === projetPourCompteRendu.id) {
+                const planning = genererPlanning(devs, projects);
+                const planProj = planning.find(pl => pl.id === p.id);
+                return { 
+                  ...p, 
+                  fini: true, 
+                  statut: 'deploy',
+                  dateFin: compteRenduData.dateRendu, 
+                  sprints: planProj ? planProj.sprints : p.sprints 
+                };
+              }
+              return p;
+            }));
+
+            // Créer le compte rendu automatique
+            const nouveauCompteRendu = {
+              id: Date.now(),
+              projetId: projetPourCompteRendu.id,
+              projetNom: projetPourCompteRendu.nom,
+              titre: `Compte rendu final - ${projetPourCompteRendu.nom}`,
+              contenu: `RÉSUMÉ DU PROJET:\n${compteRenduData.resume}\n\nCE QUI A MARCHÉ:\n${compteRenduData.ceQuiAMarche}\n\nCE QUI A MOINS BIEN MARCHÉ:\n${compteRenduData.ceQuiAMoinsMarche}\n\nAMÉLIORATIONS À APPORTER:\n${compteRenduData.ameliorations}`,
+              date: compteRenduData.dateRendu,
+              type: 'livraison',
+              isCompteRenduFinal: true,
+              compteRenduData: compteRenduData
+            };
+
+            // Ajouter au localStorage des comptes rendus
+            const compteRendusExistants = JSON.parse(localStorage.getItem('compteRendus') || '[]');
+            compteRendusExistants.push(nouveauCompteRendu);
+            localStorage.setItem('compteRendus', JSON.stringify(compteRendusExistants));
+          }
+          
+          setModalCompteRenduOpen(false);
+          setProjetPourCompteRendu(null);
+        }
+
+        function handleCompteRenduClose() {
+          setModalCompteRenduOpen(false);
+          setProjetPourCompteRendu(null);
+        }
+
         function handleModalConfirm() {
           if (modalTarget) {
             setProjects(projects => projects.map(p => {
@@ -973,7 +1184,7 @@
                 // Si on remet en non fini, on efface la date de livraison et le champ sprints
                 if (modalTarget.fini) {
                   const { dateFin, sprints, ...rest } = p;
-                  return { ...rest, fini: false };
+                  return { ...rest, fini: false, statut: p.statut === 'deploy' ? 'review' : p.statut };
                 }
               }
               return p;
@@ -987,6 +1198,61 @@
           setModalOpen(false);
           setModalTarget(null);
           setModalDate("");
+        }
+
+        // Fonction pour générer le PDF
+        function genererPDF(compteRendu, projet) {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          
+          // Titre
+          doc.setFontSize(20);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Compte Rendu de Projet', 20, 30);
+          
+          // Informations du projet
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Informations du projet:', 20, 50);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`Nom: ${projet.nom}`, 20, 60);
+          doc.text(`Priorité: ${projet.priorite}`, 20, 70);
+          doc.text(`Points estimés: ${projet.points}`, 20, 80);
+          doc.text(`Date de fin: ${new Date(compteRendu.compteRenduData.dateRendu).toLocaleDateString('fr-FR')}`, 20, 90);
+          
+          // Résumé
+          doc.setFont('helvetica', 'bold');
+          doc.text('Résumé du projet:', 20, 110);
+          doc.setFont('helvetica', 'normal');
+          const resumeLines = doc.splitTextToSize(compteRendu.compteRenduData.resume, 170);
+          doc.text(resumeLines, 20, 120);
+          
+          // Ce qui a marché
+          let yPos = 120 + (resumeLines.length * 7);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Ce qui a marché:', 20, yPos);
+          doc.setFont('helvetica', 'normal');
+          const marcheLines = doc.splitTextToSize(compteRendu.compteRenduData.ceQuiAMarche, 170);
+          doc.text(marcheLines, 20, yPos + 10);
+          
+          // Ce qui a moins bien marché
+          yPos = yPos + 10 + (marcheLines.length * 7);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Ce qui a moins bien marché:', 20, yPos);
+          doc.setFont('helvetica', 'normal');
+          const moinsMarcheLines = doc.splitTextToSize(compteRendu.compteRenduData.ceQuiAMoinsMarche, 170);
+          doc.text(moinsMarcheLines, 20, yPos + 10);
+          
+          // Améliorations
+          yPos = yPos + 10 + (moinsMarcheLines.length * 7);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Améliorations à apporter:', 20, yPos);
+          doc.setFont('helvetica', 'normal');
+          const ameliorationsLines = doc.splitTextToSize(compteRendu.compteRenduData.ameliorations, 170);
+          doc.text(ameliorationsLines, 20, yPos + 10);
+          
+          // Télécharger le PDF
+          doc.save(`compte-rendu-${projet.nom.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`);
         }
 
         // Calcule la date de fin prévisionnelle (statique - calculée à la création)
@@ -1242,7 +1508,262 @@
               dateValue={modalDate}
               onDateChange={setModalDate}
             />
+            <ModalCompteRendu
+              open={modalCompteRenduOpen}
+              onClose={handleCompteRenduClose}
+              onConfirm={handleCompteRenduConfirm}
+              projet={projetPourCompteRendu}
+              STATUTS_PROJET={STATUTS_PROJET}
+            />
             <div className="text-xs text-gray-500 mt-2">* 1 sprint de marge est ajouté automatiquement à chaque projet.</div>
+          </section>
+        );
+      }
+
+      // Composant Compte Rendu de Projet
+      function CompteRenduProjet({ projects, devs, STATUTS_PROJET }) {
+        const [compteRendus, setCompteRendus] = React.useState(() => {
+          try {
+            return JSON.parse(localStorage.getItem('compteRendus')) || [];
+          } catch {
+            return [];
+          }
+        });
+
+        // Sauvegarde automatique
+        React.useEffect(() => {
+          localStorage.setItem('compteRendus', JSON.stringify(compteRendus));
+        }, [compteRendus]);
+
+        const [selectedProject, setSelectedProject] = React.useState("");
+        const [titre, setTitre] = React.useState("");
+        const [contenu, setContenu] = React.useState("");
+        const [date, setDate] = React.useState(new Date().toISOString().split('T')[0]);
+        const [type, setType] = React.useState("reunion");
+        const [editMode, setEditMode] = React.useState(false);
+        const [editId, setEditId] = React.useState(null);
+
+        const TYPES_COMPTE_RENDU = {
+          'reunion': { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: '📋', label: 'Réunion' },
+          'avancement': { color: 'bg-green-100 text-green-800 border-green-200', icon: '📈', label: 'Avancement' },
+          'probleme': { color: 'bg-red-100 text-red-800 border-red-200', icon: '⚠️', label: 'Problème' },
+          'decision': { color: 'bg-purple-100 text-purple-800 border-purple-200', icon: '🎯', label: 'Décision' },
+          'livraison': { color: 'bg-orange-100 text-orange-800 border-orange-200', icon: '🚀', label: 'Livraison' }
+        };
+
+        function handleSubmit(e) {
+          e.preventDefault();
+          if (!selectedProject || !titre.trim() || !contenu.trim()) return;
+
+          const selectedProj = projects.find(p => p.id === Number(selectedProject));
+          
+          if (editMode && editId !== null) {
+            setCompteRendus(prev => prev.map(cr =>
+              cr.id === editId
+                ? {
+                    ...cr,
+                    projetId: Number(selectedProject),
+                    projetNom: selectedProj.nom,
+                    titre: titre.trim(),
+                    contenu: contenu.trim(),
+                    date,
+                    type
+                  }
+                : cr
+            ));
+            setEditMode(false);
+            setEditId(null);
+          } else {
+            setCompteRendus(prev => [
+              ...prev,
+              {
+                id: Date.now(),
+                projetId: Number(selectedProject),
+                projetNom: selectedProj.nom,
+                titre: titre.trim(),
+                contenu: contenu.trim(),
+                date,
+                type
+              }
+            ]);
+          }
+
+          setSelectedProject("");
+          setTitre("");
+          setContenu("");
+          setDate(new Date().toISOString().split('T')[0]);
+          setType("reunion");
+        }
+
+        function handleEdit(cr) {
+          setSelectedProject(cr.projetId.toString());
+          setTitre(cr.titre);
+          setContenu(cr.contenu);
+          setDate(cr.date);
+          setType(cr.type);
+          setEditMode(true);
+          setEditId(cr.id);
+        }
+
+        function handleCancelEdit() {
+          setEditMode(false);
+          setEditId(null);
+          setSelectedProject("");
+          setTitre("");
+          setContenu("");
+          setDate(new Date().toISOString().split('T')[0]);
+          setType("reunion");
+        }
+
+        function handleDelete(crId) {
+          if (window.confirm('Supprimer ce compte rendu ?')) {
+            setCompteRendus(prev => prev.filter(cr => cr.id !== crId));
+            if (editId === crId) {
+              handleCancelEdit();
+            }
+          }
+        }
+
+        function formatDateFR(dateStr) {
+          if (!dateStr) return "-";
+          try {
+            return new Date(dateStr).toLocaleDateString('fr-FR');
+          } catch {
+            return dateStr;
+          }
+        }
+
+        // Tri par date décroissante
+        const compteRendusTries = [...compteRendus].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // Fonction pour télécharger le PDF d'un compte rendu existant
+        function telechargerPDF(compteRendu) {
+          if (!compteRendu.isCompteRenduFinal || !compteRendu.compteRenduData) {
+            alert("Ce compte rendu n'est pas un compte rendu final ou ne contient pas les données nécessaires.");
+            return;
+          }
+
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          
+          // Titre
+          doc.setFontSize(20);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Compte Rendu de Projet', 20, 30);
+          
+          // Informations du projet
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Informations du projet:', 20, 50);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`Nom: ${compteRendu.projetNom}`, 20, 60);
+          doc.text(`Date de fin: ${formatDateFR(compteRendu.compteRenduData.dateRendu)}`, 20, 70);
+          
+          // Résumé
+          doc.setFont('helvetica', 'bold');
+          doc.text('Résumé du projet:', 20, 90);
+          doc.setFont('helvetica', 'normal');
+          const resumeLines = doc.splitTextToSize(compteRendu.compteRenduData.resume, 170);
+          doc.text(resumeLines, 20, 100);
+          
+          // Ce qui a marché
+          let yPos = 100 + (resumeLines.length * 7);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Ce qui a marché:', 20, yPos);
+          doc.setFont('helvetica', 'normal');
+          const marcheLines = doc.splitTextToSize(compteRendu.compteRenduData.ceQuiAMarche, 170);
+          doc.text(marcheLines, 20, yPos + 10);
+          
+          // Ce qui a moins bien marché
+          yPos = yPos + 10 + (marcheLines.length * 7);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Ce qui a moins bien marché:', 20, yPos);
+          doc.setFont('helvetica', 'normal');
+          const moinsMarcheLines = doc.splitTextToSize(compteRendu.compteRenduData.ceQuiAMoinsMarche, 170);
+          doc.text(moinsMarcheLines, 20, yPos + 10);
+          
+          // Améliorations
+          yPos = yPos + 10 + (moinsMarcheLines.length * 7);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Améliorations à apporter:', 20, yPos);
+          doc.setFont('helvetica', 'normal');
+          const ameliorationsLines = doc.splitTextToSize(compteRendu.compteRenduData.ameliorations, 170);
+          doc.text(ameliorationsLines, 20, yPos + 10);
+          
+          // Télécharger le PDF
+          doc.save(`compte-rendu-${compteRendu.projetNom.replace(/[^a-zA-Z0-9]/g, '-')}-${compteRendu.date}.pdf`);
+        }
+
+        return (
+          <section className="bg-white/90 p-8 rounded-2xl shadow-magic border border-primary/10 mb-8 transition-all duration-300 hover:shadow-2xl">
+            <h2 className="text-2xl font-bold font-display text-primary mb-4 flex items-center gap-2">
+              <svg className="w-7 h-7 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              Compte rendu de projet
+            </h2>
+            
+            <div>
+              <h3 className="font-semibold mb-4 text-gray-700">Comptes rendus existants</h3>
+              {compteRendusTries.length === 0 ? (
+                <div className="text-gray-400 italic">Aucun compte rendu créé.</div>
+              ) : (
+                <div className="space-y-4">
+                  {compteRendusTries.map(cr => (
+                    <div key={cr.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold border ${TYPES_COMPTE_RENDU[cr.type]?.color || TYPES_COMPTE_RENDU['reunion'].color}`}>
+                            {TYPES_COMPTE_RENDU[cr.type]?.icon || TYPES_COMPTE_RENDU['reunion'].icon} {TYPES_COMPTE_RENDU[cr.type]?.label || TYPES_COMPTE_RENDU['reunion'].label}
+                          </span>
+                          <span className="text-sm text-gray-500">{formatDateFR(cr.date)}</span>
+                          {cr.isCompteRenduFinal && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border-green-200">
+                              🏁 Compte rendu final
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {cr.isCompteRenduFinal && (
+                            <button 
+                              type="button" 
+                              className="text-green-600 hover:text-green-800 font-bold opacity-70 hover:opacity-100 transition" 
+                              title="Télécharger PDF" 
+                              onClick={() => telechargerPDF(cr)}
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </button>
+                          )}
+                          <button 
+                            type="button" 
+                            className="text-accent hover:text-primary font-bold opacity-70 hover:opacity-100 transition" 
+                            title="Modifier" 
+                            onClick={() => handleEdit(cr)}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button 
+                            type="button" 
+                            className="text-red-400 hover:text-red-600 font-bold opacity-70 hover:opacity-100 transition" 
+                            title="Supprimer" 
+                            onClick={() => handleDelete(cr.id)}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <h4 className="font-semibold text-dark mb-1">{cr.titre}</h4>
+                      <p className="text-sm text-gray-600 mb-2">Projet : <span className="font-medium text-primary">{cr.projetNom}</span></p>
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap">{cr.contenu}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
         );
       }
