@@ -1104,7 +1104,7 @@
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700 font-medium">{proj.points}</td>
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700 font-medium">{proj.sprints}</td>
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700 whitespace-nowrap">{getDateFin(proj)}
-  {/* Affichage du retard en mois si projet en retard */}
+  {/* Affichage du retard en jours ou mois si projet en retard */}
   {(() => {
     if (proj.fini) return null;
     const dateFinStr = getDateFin(proj);
@@ -1116,16 +1116,22 @@
     now.setHours(0,0,0,0);
     const diffJours = Math.ceil((now - dateFin) / (1000 * 60 * 60 * 24));
     if (diffJours > 0) {
-      const moisRetard = Math.ceil(diffJours / 30);
-      return (
-        <div className="text-xs text-red-600 font-bold mt-1">{moisRetard} mois de retard</div>
-      );
+      if (diffJours < 30) {
+        return (
+          <div className="text-xs text-red-600 font-bold mt-1">{diffJours} jour{diffJours > 1 ? 's' : ''} de retard</div>
+        );
+      } else {
+        const moisRetard = Math.ceil(diffJours / 30);
+        return (
+          <div className="text-xs text-red-600 font-bold mt-1">{moisRetard} mois de retard</div>
+        );
+      }
     }
     return null;
   })()}
 </td>
                       <td className="px-4 py-3 border-b border-gray-200 text-gray-700 whitespace-nowrap">{getDateFinCorrigee(proj)}
-  {/* Affichage du retard en mois si projet en retard (date corrigée) */}
+  {/* Affichage du retard en jours ou mois si projet en retard (date corrigée) */}
   {(() => {
     if (proj.fini) return null;
     const dateFinStr = getDateFinCorrigee(proj);
@@ -1137,10 +1143,16 @@
     now.setHours(0,0,0,0);
     const diffJours = Math.ceil((now - dateFin) / (1000 * 60 * 60 * 24));
     if (diffJours > 0) {
-      const moisRetard = Math.ceil(diffJours / 30);
-      return (
-        <div className="text-xs text-red-600 font-bold mt-1">{moisRetard} mois de retard</div>
-      );
+      if (diffJours < 30) {
+        return (
+          <div className="text-xs text-red-600 font-bold mt-1">{diffJours} jour{diffJours > 1 ? 's' : ''} de retard</div>
+        );
+      } else {
+        const moisRetard = Math.ceil(diffJours / 30);
+        return (
+          <div className="text-xs text-red-600 font-bold mt-1">{moisRetard} mois de retard</div>
+        );
+      }
     }
     return null;
   })()}
