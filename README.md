@@ -177,20 +177,13 @@ Les contributions sont les bienvenues !
 
 Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
-## 🙏 Remerciements
-
-- **Tailwind CSS** pour le framework de styling
-- **React** pour la réactivité
-- **jsPDF** pour la génération de PDF
-- **Heroicons** pour les icônes
-- **Google Fonts** pour les polices
 
 ## 📞 Support
 
 Si vous avez des questions ou des suggestions :
 
 - **Issues** : [GitHub Issues](https://github.com/votre-username/velocity-of-a-city/issues)
-- **Email** : contact@velocity-of-a-city.com
+- **Email** : a.capslock@proton.me
 - **Documentation** : [Wiki du projet](https://github.com/votre-username/velocity-of-a-city/wiki)
 
 ---
