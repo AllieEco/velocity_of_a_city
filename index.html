@@ -1351,22 +1351,7 @@
           return d.toLocaleDateString('fr-FR');
         }
 
-        // Calcule la date de fin prévisionnelle corrigée (dynamique - recalculée à chaque modification)
-        function getDateFinCorrigee(proj) {
-          if (!proj.dateDebut) return "-";
-          
-          // Générer le planning actuel avec toutes les modifications
-          const planningActuel = genererPlanning(devs, projects);
-          const projetActuel = planningActuel.find(p => p.id === proj.id);
-          
-          if (!projetActuel) return "-";
-          
-          const d = new Date(proj.dateDebut);
-          // On considère 1 sprint = SPRINT_DAYS jours ouvrés (on ajoute 2 jours par sprint pour simuler les week-ends)
-          const totalDays = projetActuel.sprints * (SPRINT_DAYS + 2);
-          d.setDate(d.getDate() + totalDays);
-          return d.toLocaleDateString('fr-FR');
-        }
+
 
         function getFinStatusColor(proj) {
           if (proj.fini) return 'bg-green-50';
@@ -1482,7 +1467,6 @@
                     <th className="px-4 py-3 text-left font-bold">Points</th>
                     <th className="px-4 py-3 text-left font-bold">Sprints nécessaires</th>
                     <th className="px-4 py-3 text-left font-bold">Date de fin prévisionnelle</th>
-                    <th className="px-4 py-3 text-left font-bold">Date corrigée</th>
                     <th className="px-4 py-3 text-left font-bold">Devs affectés</th>
                     <th className="px-4 py-3 text-left font-bold rounded-tr-2xl">Fini ?</th>
                   </tr>
@@ -1515,33 +1499,6 @@
   {(() => {
     if (proj.fini) return null;
     const dateFinStr = getDateFin(proj);
-    if (!dateFinStr || dateFinStr === '-') return null;
-    const [jour, mois, annee] = dateFinStr.split('/').map(Number);
-    const dateFin = new Date(annee, mois - 1, jour);
-    const now = new Date();
-    dateFin.setHours(0,0,0,0);
-    now.setHours(0,0,0,0);
-    const diffJours = Math.ceil((now - dateFin) / (1000 * 60 * 60 * 24));
-    if (diffJours > 0) {
-      if (diffJours < 30) {
-        return (
-          <div className="text-xs text-red-600 font-bold mt-1">{diffJours} jour{diffJours > 1 ? 's' : ''} de retard</div>
-        );
-      } else {
-        const moisRetard = Math.ceil(diffJours / 30);
-        return (
-          <div className="text-xs text-red-600 font-bold mt-1">{moisRetard} mois de retard</div>
-        );
-      }
-    }
-    return null;
-  })()}
-</td>
-                      <td className="px-4 py-3 border-b border-gray-200 text-gray-700 whitespace-nowrap">{getDateFinCorrigee(proj)}
-  {/* Affichage du retard en jours ou mois si projet en retard (date corrigée) */}
-  {(() => {
-    if (proj.fini) return null;
-    const dateFinStr = getDateFinCorrigee(proj);
     if (!dateFinStr || dateFinStr === '-') return null;
     const [jour, mois, annee] = dateFinStr.split('/').map(Number);
     const dateFin = new Date(annee, mois - 1, jour);
