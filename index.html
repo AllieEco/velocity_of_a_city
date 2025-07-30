@@ -281,7 +281,15 @@
               <PlanningView devs={devs} projects={projects} genererPlanning={genererPlanning} setProjects={setProjects} STATUTS_PROJET={STATUTS_PROJET} />
             </section>
             <section className="fade-in">
-              <CompteRenduProjet projects={projects} devs={devs} STATUTS_PROJET={STATUTS_PROJET} />
+              <CompteRenduProjet 
+                projects={projects} 
+                devs={devs} 
+                STATUTS_PROJET={STATUTS_PROJET}
+                onCompteRenduAdded={(nouveauCompteRendu) => {
+                  // Cette fonction sera appelée quand un nouveau compte rendu est ajouté
+                  // Elle permettra de forcer la mise à jour du composant
+                }}
+              />
             </section>
           </div>
         );
@@ -1159,6 +1167,11 @@
             const compteRendusExistants = JSON.parse(localStorage.getItem('compteRendus') || '[]');
             compteRendusExistants.push(nouveauCompteRendu);
             localStorage.setItem('compteRendus', JSON.stringify(compteRendusExistants));
+
+            // Forcer la mise à jour du composant CompteRenduProjet
+            if (window.addCompteRendu) {
+              window.addCompteRendu(nouveauCompteRendu);
+            }
           }
           
           setModalCompteRenduOpen(false);
@@ -1521,7 +1534,7 @@
       }
 
       // Composant Compte Rendu de Projet
-      function CompteRenduProjet({ projects, devs, STATUTS_PROJET }) {
+      function CompteRenduProjet({ projects, devs, STATUTS_PROJET, onCompteRenduAdded }) {
         const [compteRendus, setCompteRendus] = React.useState(() => {
           try {
             return JSON.parse(localStorage.getItem('compteRendus')) || [];
@@ -1529,11 +1542,23 @@
             return [];
           }
         });
+        const [forceUpdate, setForceUpdate] = React.useState(0);
 
         // Sauvegarde automatique
         React.useEffect(() => {
           localStorage.setItem('compteRendus', JSON.stringify(compteRendus));
         }, [compteRendus]);
+
+        // Fonction pour ajouter un compte rendu depuis l'extérieur
+        React.useEffect(() => {
+          if (onCompteRenduAdded) {
+            // Créer une fonction qui peut être appelée depuis l'extérieur
+            window.addCompteRendu = (nouveauCompteRendu) => {
+              setCompteRendus(prev => [...prev, nouveauCompteRendu]);
+              setForceUpdate(prev => prev + 1);
+            };
+          }
+        }, [onCompteRenduAdded]);
 
         const [selectedProject, setSelectedProject] = React.useState("");
         const [titre, setTitre] = React.useState("");
