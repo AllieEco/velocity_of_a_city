@@ -2117,13 +2117,13 @@
               plannedEnd.setHours(23, 59, 59);
               
               // Si le projet est en retard (date prévisionnelle dépassée), 
-              // il continue d'apparaître jusqu'à la date actuelle du calendrier
+              // il continue d'apparaître jusqu'à la date d'aujourd'hui (date réelle)
               const today = new Date();
               today.setHours(23, 59, 59);
               
               if (plannedEnd < today) {
-                // Projet en retard : il apparaît jusqu'à la date actuelle du calendrier
-                projectEnd = currentDate;
+                // Projet en retard : il apparaît jusqu'à la date d'aujourd'hui
+                projectEnd = today;
               } else {
                 // Projet en cours : utilise la date de fin prévisionnelle
                 projectEnd = plannedEnd;
