@@ -2072,11 +2072,16 @@
         }
 
         function getSprintForDate(date) {
-          const dateStr = date.toISOString().split('T')[0];
+          // Formater la date en YYYY-MM-DD pour éviter les problèmes de fuseau horaire
+          const dateStr = date.getFullYear() + '-' + 
+            String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+            String(date.getDate()).padStart(2, '0');
+          
           return sprintsTries.find(sprint => {
-            const start = new Date(sprint.dateDebut);
-            const end = new Date(sprint.dateFin);
-            const current = new Date(dateStr);
+            const start = new Date(sprint.dateDebut + 'T00:00:00');
+            const end = new Date(sprint.dateFin + 'T23:59:59');
+            const current = new Date(dateStr + 'T12:00:00'); // Milieu de journée pour éviter les problèmes de fuseau horaire
+            
             return current >= start && current <= end;
           });
         }
@@ -2084,8 +2089,11 @@
         function getProjectsForDate(date) {
           if (!projects || projects.length === 0) return [];
           
-          const dateStr = date.toISOString().split('T')[0];
-          const currentDate = new Date(dateStr);
+          // Formater la date en YYYY-MM-DD pour éviter les problèmes de fuseau horaire
+          const dateStr = date.getFullYear() + '-' + 
+            String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+            String(date.getDate()).padStart(2, '0');
+          const currentDate = new Date(dateStr + 'T12:00:00'); // Milieu de journée
           
           // Générer le planning pour obtenir les dates des projets
           const planning = genererPlanning(devs, projects);
@@ -2093,11 +2101,12 @@
           return planning.filter(project => {
             if (!project.dateDebut) return false;
             
-            const projectStart = new Date(project.dateDebut);
+            const projectStart = new Date(project.dateDebut + 'T00:00:00');
             // Calculer la date de fin basée sur le nombre de sprints
             const projectEnd = new Date(projectStart);
             const totalDays = project.sprints * 12; // 10 jours + 2 jours de marge par sprint
             projectEnd.setDate(projectEnd.getDate() + totalDays);
+            projectEnd.setHours(23, 59, 59); // Fin de journée
             
             return currentDate >= projectStart && currentDate <= projectEnd;
           });
