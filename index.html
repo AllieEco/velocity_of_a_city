@@ -2025,6 +2025,17 @@
           setEditMode(true);
           setEditId(sprint.id);
           setShowForm(true);
+          
+          // Scroll automatique vers la section de modification
+          setTimeout(() => {
+            const formSection = document.getElementById('sprint-form-section');
+            if (formSection) {
+              formSection.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+              });
+            }
+          }, 100); // Petit délai pour s'assurer que le formulaire est rendu
         }
 
         function handleCancelEdit() {
@@ -2228,7 +2239,7 @@
 
             {/* Formulaire d'ajout/modification */}
             {showForm && (
-              <div className="mb-6 p-6 bg-gradient-to-r from-accent/10 to-primary/10 rounded-xl border border-accent/20">
+              <div id="sprint-form-section" className="mb-6 p-6 bg-gradient-to-r from-accent/10 to-primary/10 rounded-xl border border-accent/20">
                 <h3 className="text-lg font-semibold text-dark mb-4">
                   {editMode ? 'Modifier le Sprint' : 'Nouveau Sprint'}
                 </h3>
