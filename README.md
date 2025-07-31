@@ -365,18 +365,6 @@ Besoin d'aide ou d'inspiration ?
 - **📚 Documentation** : [Wiki du projet](https://github.com/votre-username/velocity-of-a-city/wiki)
 - **💬 Discussions** : [GitHub Discussions](https://github.com/votre-username/velocity-of-a-city/discussions)
 
----
-
-## 🌟 **TÉMOIGNAGES**
-
-> *"Cette application a révolutionné notre gestion de projet. Le calendrier visuel est magique !"*  
-> — **Marie D., Chef de Projet Senior**
-
-> *"L'algorithme de planning automatique est incroyable. Il nous fait gagner des heures !"*  
-> — **Thomas L., Scrum Master**
-
-> *"Les comptes rendus automatiques sont un vrai gain de temps. Le PDF est parfait !"*  
-> — **Sophie M., Product Owner**
 
 ---
 
