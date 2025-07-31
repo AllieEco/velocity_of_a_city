@@ -2109,11 +2109,25 @@
               // Projet terminé : utiliser la vraie date de livraison
               projectEnd = new Date(project.dateFin + 'T23:59:59');
             } else {
-              // Projet en cours : utiliser la date de fin prévisionnelle
-              projectEnd = new Date(projectStart);
+              // Projet en cours ou en retard : utiliser la date de fin prévisionnelle
+              // MAIS si le projet est en retard, il continue d'apparaître jusqu'à aujourd'hui
+              const plannedEnd = new Date(projectStart);
               const totalDays = project.sprints * 12; // 10 jours + 2 jours de marge par sprint
-              projectEnd.setDate(projectEnd.getDate() + totalDays);
-              projectEnd.setHours(23, 59, 59); // Fin de journée
+              plannedEnd.setDate(plannedEnd.getDate() + totalDays);
+              plannedEnd.setHours(23, 59, 59);
+              
+              // Si le projet est en retard (date prévisionnelle dépassée), 
+              // il continue d'apparaître jusqu'à la date actuelle du calendrier
+              const today = new Date();
+              today.setHours(23, 59, 59);
+              
+              if (plannedEnd < today) {
+                // Projet en retard : il apparaît jusqu'à la date actuelle du calendrier
+                projectEnd = currentDate;
+              } else {
+                // Projet en cours : utilise la date de fin prévisionnelle
+                projectEnd = plannedEnd;
+              }
             }
             
             return currentDate >= projectStart && currentDate <= projectEnd;
