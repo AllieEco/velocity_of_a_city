@@ -393,7 +393,13 @@
           <>
             <div className="space-y-12">
               <section className="fade-in">
-                <SprintCalendar sprints={sprints} setSprints={setSprints} />
+                <SprintCalendar 
+                  sprints={sprints} 
+                  setSprints={setSprints} 
+                  projects={projects}
+                  devs={devs}
+                  genererPlanning={genererPlanning}
+                />
               </section>
               <section className="fade-in">
                 <DevInput devs={devs} setDevs={setDevs} POINTS_PAR_STATUT={POINTS_PAR_STATUT} />
@@ -1950,7 +1956,7 @@
       }
 
       // Nouveau composant SprintCalendar avec interface calendrier moderne
-      function SprintCalendar({ sprints, setSprints }) {
+      function SprintCalendar({ sprints, setSprints, projects, devs, genererPlanning }) {
         const [numero, setNumero] = React.useState("");
         const [dateDebut, setDateDebut] = React.useState("");
         const [dateFin, setDateFin] = React.useState("");
@@ -1972,6 +1978,15 @@
           'bg-gradient-to-r from-yellow-500 to-yellow-600',
           'bg-gradient-to-r from-cyan-500 to-cyan-600'
         ];
+
+        // Couleurs pour les projets (basées sur les statuts)
+        const projectColors = {
+          'conception': 'bg-gradient-to-r from-indigo-400 to-indigo-500',
+          'dev': 'bg-gradient-to-r from-blue-400 to-blue-500',
+          'test': 'bg-gradient-to-r from-yellow-400 to-yellow-500',
+          'review': 'bg-gradient-to-r from-purple-400 to-purple-500',
+          'deploy': 'bg-gradient-to-r from-green-400 to-green-500'
+        };
 
         function handleSubmit(e) {
           e.preventDefault();
@@ -2061,6 +2076,28 @@
             const end = new Date(sprint.dateFin);
             const current = new Date(dateStr);
             return current >= start && current <= end;
+          });
+        }
+
+        function getProjectsForDate(date) {
+          if (!projects || projects.length === 0) return [];
+          
+          const dateStr = date.toISOString().split('T')[0];
+          const currentDate = new Date(dateStr);
+          
+          // Générer le planning pour obtenir les dates des projets
+          const planning = genererPlanning(devs, projects);
+          
+          return planning.filter(project => {
+            if (!project.dateDebut) return false;
+            
+            const projectStart = new Date(project.dateDebut);
+            // Calculer la date de fin basée sur le nombre de sprints
+            const projectEnd = new Date(projectStart);
+            const totalDays = project.sprints * 12; // 10 jours + 2 jours de marge par sprint
+            projectEnd.setDate(projectEnd.getDate() + totalDays);
+            
+            return currentDate >= projectStart && currentDate <= projectEnd;
           });
         }
 
@@ -2201,12 +2238,13 @@
                 {/* Jours du mois */}
                 {calendarDays.map(({ day, isCurrentMonth, date }, index) => {
                   const sprint = getSprintForDate(date);
+                  const projects = getProjectsForDate(date);
                   const isToday = date.toDateString() === new Date().toDateString();
                   
                   return (
                     <div
                       key={index}
-                      className={`min-h-[80px] p-2 relative ${
+                      className={`min-h-[100px] p-2 relative ${
                         isCurrentMonth ? 'bg-white' : 'bg-gray-50'
                       } ${isToday ? 'ring-2 ring-accent ring-opacity-50' : ''}`}
                     >
@@ -2216,67 +2254,139 @@
                         {day}
                       </div>
                       
+                      {/* Sprint en premier */}
                       {sprint && (
                         <div className={`mt-1 p-1 rounded text-xs font-semibold text-white shadow-sm ${getSprintColor(sprint.numero)}`}>
                           Sprint {sprint.numero}
                         </div>
                       )}
+                      
+                      {/* Projets triés par priorité */}
+                      <div className="mt-1 space-y-1">
+                        {projects
+                          .sort((a, b) => a.priorite - b.priorite) // Tri par priorité croissante
+                          .slice(0, 3)
+                          .map(project => (
+                            <div
+                              key={project.id}
+                              className={`p-1 rounded text-xs font-medium text-white shadow-sm truncate ${projectColors[project.statut || 'conception']}`}
+                              title={`${project.nom} - Priorité ${project.priorite} (${project.statut || 'conception'})`}
+                            >
+                              {project.nom}
+                            </div>
+                          ))}
+                        {projects.length > 3 && (
+                          <div className="text-xs text-gray-500 font-medium">
+                            +{projects.length - 3} autres
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Légende des sprints */}
-            {sprintsTries.length > 0 && (
-              <div className="mt-6">
-                <h3 className="font-semibold mb-3 text-gray-700">Légende des Sprints</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {sprintsTries.map(sprint => (
-                    <div key={sprint.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group hover:shadow-md transition-all duration-200">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full ${getSprintColor(sprint.numero)}`}></div>
-                        <div>
-                          <div className="font-semibold text-dark">Sprint {sprint.numero}</div>
-                          <div className="text-sm text-gray-600">{formatDateFR(sprint.dateDebut)} → {formatDateFR(sprint.dateFin)}</div>
+            {/* Légende des sprints et projets */}
+            <div className="mt-6 space-y-6">
+              {/* Légende des sprints */}
+              {sprintsTries.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3 text-gray-700 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 3v4M8 3v4M3 11h18" />
+                    </svg>
+                    Légende des Sprints
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {sprintsTries.map(sprint => (
+                      <div key={sprint.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group hover:shadow-md transition-all duration-200">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full ${getSprintColor(sprint.numero)}`}></div>
+                          <div>
+                            <div className="font-semibold text-dark">Sprint {sprint.numero}</div>
+                            <div className="text-sm text-gray-600">{formatDateFR(sprint.dateDebut)} → {formatDateFR(sprint.dateFin)}</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            className="p-1 text-accent hover:text-primary transition"
+                            title="Modifier"
+                            onClick={() => handleEdit(sprint)}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            className="p-1 text-red-400 hover:text-red-600 transition"
+                            title="Supprimer"
+                            onClick={() => handleDelete(sprint.id)}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          type="button"
-                          className="p-1 text-accent hover:text-primary transition"
-                          title="Modifier"
-                          onClick={() => handleEdit(sprint)}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          className="p-1 text-red-400 hover:text-red-600 transition"
-                          title="Supprimer"
-                          onClick={() => handleDelete(sprint.id)}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {sprintsTries.length === 0 && (
+              {/* Légende des projets */}
+              {projects && projects.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3 text-gray-700 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Légende des Projets
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {projects.map(project => {
+                      const planning = genererPlanning(devs, projects);
+                      const planProj = planning.find(p => p.id === project.id);
+                      const dateFin = planProj && project.dateDebut ? (() => {
+                        const start = new Date(project.dateDebut);
+                        const totalDays = planProj.sprints * 12;
+                        start.setDate(start.getDate() + totalDays);
+                        return formatDateFR(start.toISOString().split('T')[0]);
+                      })() : '-';
+                      
+                      return (
+                        <div key={project.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group hover:shadow-md transition-all duration-200">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-4 h-4 rounded-full ${projectColors[project.statut || 'conception']}`}></div>
+                            <div>
+                              <div className="font-semibold text-dark">{project.nom}</div>
+                              <div className="text-sm text-gray-600">
+                                {project.dateDebut ? formatDateFR(project.dateDebut) : 'Pas de date'} → {dateFin}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {planProj ? `${planProj.sprints} sprints` : 'Non planifié'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {sprintsTries.length === 0 && projects.length === 0 && (
               <div className="text-center py-8 text-gray-400">
                 <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
                   <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="2"/>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 3v4M8 3v4M3 11h18" />
                 </svg>
-                <p className="text-lg font-medium">Aucun sprint configuré</p>
-                <p className="text-sm">Ajoutez votre premier sprint pour commencer !</p>
+                <p className="text-lg font-medium">Aucun sprint ou projet configuré</p>
+                <p className="text-sm">Ajoutez des sprints et des projets pour voir votre planning !</p>
               </div>
             )}
           </section>
