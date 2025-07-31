@@ -3,6 +3,9 @@
 > **Le planning qui fait rêver les chefs de projet ✨**  
 > *Transformez votre gestion de projet en expérience magique*
 
+<img width="1900" height="956" alt="image" src="https://github.com/user-attachments/assets/dc8eb8b0-a024-41e9-b777-174f0bded26d" />
+
+
 Une application web révolutionnaire qui transforme la gestion de projets agiles en une expérience visuelle et intuitive. Conçue pour les chefs de projet qui veulent l'excellence, elle combine planning automatique intelligent, calendrier visuel interactif, et génération de comptes rendus professionnels.
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
@@ -365,18 +368,6 @@ Besoin d'aide ou d'inspiration ?
 - **📚 Documentation** : [Wiki du projet](https://github.com/votre-username/velocity-of-a-city/wiki)
 - **💬 Discussions** : [GitHub Discussions](https://github.com/votre-username/velocity-of-a-city/discussions)
 
----
-
-## 🌟 **TÉMOIGNAGES**
-
-> *"Cette application a révolutionné notre gestion de projet. Le calendrier visuel est magique !"*  
-> — **Marie D., Chef de Projet Senior**
-
-> *"L'algorithme de planning automatique est incroyable. Il nous fait gagner des heures !"*  
-> — **Thomas L., Scrum Master**
-
-> *"Les comptes rendus automatiques sont un vrai gain de temps. Le PDF est parfait !"*  
-> — **Sophie M., Product Owner**
 
 ---
 
