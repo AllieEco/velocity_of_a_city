@@ -2102,11 +2102,19 @@
             if (!project.dateDebut) return false;
             
             const projectStart = new Date(project.dateDebut + 'T00:00:00');
-            // Calculer la date de fin basée sur le nombre de sprints
-            const projectEnd = new Date(projectStart);
-            const totalDays = project.sprints * 12; // 10 jours + 2 jours de marge par sprint
-            projectEnd.setDate(projectEnd.getDate() + totalDays);
-            projectEnd.setHours(23, 59, 59); // Fin de journée
+            
+            // Déterminer la date de fin selon l'état du projet
+            let projectEnd;
+            if (project.fini && project.dateFin) {
+              // Projet terminé : utiliser la vraie date de livraison
+              projectEnd = new Date(project.dateFin + 'T23:59:59');
+            } else {
+              // Projet en cours : utiliser la date de fin prévisionnelle
+              projectEnd = new Date(projectStart);
+              const totalDays = project.sprints * 12; // 10 jours + 2 jours de marge par sprint
+              projectEnd.setDate(projectEnd.getDate() + totalDays);
+              projectEnd.setHours(23, 59, 59); // Fin de journée
+            }
             
             return currentDate >= projectStart && currentDate <= projectEnd;
           });
