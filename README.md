@@ -3,6 +3,9 @@
 > **Le planning qui fait rêver les chefs de projet ✨**  
 > *Transformez votre gestion de projet en expérience magique*
 
+<img width="1900" height="956" alt="image" src="https://github.com/user-attachments/assets/dc8eb8b0-a024-41e9-b777-174f0bded26d" />
+
+
 Une application web révolutionnaire qui transforme la gestion de projets agiles en une expérience visuelle et intuitive. Conçue pour les chefs de projet qui veulent l'excellence, elle combine planning automatique intelligent, calendrier visuel interactif, et génération de comptes rendus professionnels.
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
