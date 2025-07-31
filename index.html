@@ -393,7 +393,7 @@
           <>
             <div className="space-y-12">
               <section className="fade-in">
-                <SprintList sprints={sprints} setSprints={setSprints} />
+                <SprintCalendar sprints={sprints} setSprints={setSprints} />
               </section>
               <section className="fade-in">
                 <DevInput devs={devs} setDevs={setDevs} POINTS_PAR_STATUT={POINTS_PAR_STATUT} />
@@ -1949,13 +1949,29 @@
         );
       }
 
-      // Nouveau composant SprintList
-      function SprintList({ sprints, setSprints }) {
+      // Nouveau composant SprintCalendar avec interface calendrier moderne
+      function SprintCalendar({ sprints, setSprints }) {
         const [numero, setNumero] = React.useState("");
         const [dateDebut, setDateDebut] = React.useState("");
         const [dateFin, setDateFin] = React.useState("");
         const [editMode, setEditMode] = React.useState(false);
         const [editId, setEditId] = React.useState(null);
+        const [currentMonth, setCurrentMonth] = React.useState(new Date());
+        const [showForm, setShowForm] = React.useState(false);
+
+        // Couleurs pour les sprints
+        const sprintColors = [
+          'bg-gradient-to-r from-blue-500 to-blue-600',
+          'bg-gradient-to-r from-purple-500 to-purple-600',
+          'bg-gradient-to-r from-green-500 to-green-600',
+          'bg-gradient-to-r from-orange-500 to-orange-600',
+          'bg-gradient-to-r from-pink-500 to-pink-600',
+          'bg-gradient-to-r from-indigo-500 to-indigo-600',
+          'bg-gradient-to-r from-teal-500 to-teal-600',
+          'bg-gradient-to-r from-red-500 to-red-600',
+          'bg-gradient-to-r from-yellow-500 to-yellow-600',
+          'bg-gradient-to-r from-cyan-500 to-cyan-600'
+        ];
 
         function handleSubmit(e) {
           e.preventDefault();
@@ -1982,6 +1998,7 @@
           setNumero("");
           setDateDebut("");
           setDateFin("");
+          setShowForm(false);
         }
 
         function handleEdit(sprint) {
@@ -1990,6 +2007,7 @@
           setDateFin(sprint.dateFin);
           setEditMode(true);
           setEditId(sprint.id);
+          setShowForm(true);
         }
 
         function handleCancelEdit() {
@@ -1998,6 +2016,7 @@
           setNumero("");
           setDateDebut("");
           setDateFin("");
+          setShowForm(false);
         }
 
         function handleDelete(id) {
@@ -2009,6 +2028,7 @@
               setNumero("");
               setDateDebut("");
               setDateFin("");
+              setShowForm(false);
             }
           }
         }
@@ -2025,51 +2045,240 @@
           }
         }
 
+        // Fonctions pour le calendrier
+        function getDaysInMonth(date) {
+          return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        }
+
+        function getFirstDayOfMonth(date) {
+          return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+        }
+
+        function getSprintForDate(date) {
+          const dateStr = date.toISOString().split('T')[0];
+          return sprintsTries.find(sprint => {
+            const start = new Date(sprint.dateDebut);
+            const end = new Date(sprint.dateFin);
+            const current = new Date(dateStr);
+            return current >= start && current <= end;
+          });
+        }
+
+        function getSprintColor(sprintNumero) {
+          return sprintColors[(sprintNumero - 1) % sprintColors.length];
+        }
+
+        function navigateMonth(direction) {
+          setCurrentMonth(prev => {
+            const newDate = new Date(prev);
+            newDate.setMonth(newDate.getMonth() + direction);
+            return newDate;
+          });
+        }
+
+        function generateCalendarDays() {
+          const daysInMonth = getDaysInMonth(currentMonth);
+          const firstDay = getFirstDayOfMonth(currentMonth);
+          const days = [];
+
+          // Jours du mois précédent
+          for (let i = 0; i < firstDay; i++) {
+            const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 0);
+            const day = prevMonth.getDate() - firstDay + i + 1;
+            days.push({ day, isCurrentMonth: false, date: new Date(prevMonth.getFullYear(), prevMonth.getMonth(), day) });
+          }
+
+          // Jours du mois actuel
+          for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+            days.push({ day, isCurrentMonth: true, date });
+          }
+
+          // Jours du mois suivant
+          const remainingDays = 42 - days.length; // 6 semaines * 7 jours
+          for (let day = 1; day <= remainingDays; day++) {
+            const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, day);
+            days.push({ day, isCurrentMonth: false, date: nextMonth });
+          }
+
+          return days;
+        }
+
+        const calendarDays = generateCalendarDays();
+        const monthNames = [
+          'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+          'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+        ];
+
         return (
           <section className="bg-white/90 p-8 rounded-2xl shadow-magic border border-accent/20 mb-8 transition-all duration-300 hover:shadow-xl">
-            <h2 className="text-xl font-bold font-display text-accent mb-3 flex items-center gap-2">
-              <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="2"/><path strokeLinecap="round" strokeLinejoin="round" d="M16 3v4M8 3v4M3 11h18" /></svg>
-              Sprints (gestion manuelle)
-            </h2>
-            <form className="flex flex-col md:flex-row md:items-end gap-4 mb-6" onSubmit={handleSubmit}>
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">N° Sprint</label>
-                <input type="number" min="1" className="w-24 border-2 border-accent/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent/40 transition h-10" value={numero} onChange={e => setNumero(e.target.value)} required />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Date début</label>
-                <input type="date" className="w-44 border-2 border-accent/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent/40 transition h-10" value={dateDebut} onChange={e => setDateDebut(e.target.value)} required />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Date fin</label>
-                <input type="date" className="w-44 border-2 border-accent/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent/40 transition h-10" value={dateFin} onChange={e => setDateFin(e.target.value)} required />
-              </div>
-              <button type="submit" className={"px-5 py-2 rounded-lg font-bold text-white shadow transition-all duration-200 " + (editMode ? "bg-primary hover:bg-primary/90" : "bg-accent hover:bg-accent/80")}>{editMode ? "Modifier" : "Ajouter"}</button>
-              {editMode && (
-                <button type="button" className="ml-2 px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition" onClick={handleCancelEdit}>Annuler</button>
-              )}
-            </form>
-            <div>
-              <h3 className="font-semibold mb-2 text-gray-700">Liste des sprints</h3>
-              {sprintsTries.length === 0 ? (
-                <div className="text-gray-400 italic">Aucun sprint saisi.</div>
-              ) : (
-                <ul className="divide-y">
-                  {sprintsTries.map(sprint => (
-                    <li key={sprint.id} className="py-2 flex items-center gap-4 group">
-                      <span className="font-medium text-dark">Sprint {sprint.numero}</span>
-                      <span className="text-sm text-accent font-semibold">{formatDateFR(sprint.dateDebut)} → {formatDateFR(sprint.dateFin)}</span>
-                      <button type="button" className="ml-2 text-accent hover:text-primary font-bold opacity-70 group-hover:opacity-100 transition" title="Modifier" onClick={() => handleEdit(sprint)}>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                      </button>
-                      <button type="button" className="ml-2 text-red-400 hover:text-red-600 font-bold opacity-70 group-hover:opacity-100 transition" title="Supprimer" onClick={() => handleDelete(sprint.id)}>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold font-display text-accent flex items-center gap-2">
+                <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="2"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 3v4M8 3v4M3 11h18" />
+                </svg>
+                Calendrier des Sprints
+              </h2>
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className="px-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg font-semibold transition-all duration-200 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                {showForm ? 'Masquer' : 'Ajouter Sprint'}
+              </button>
             </div>
+
+            {/* Formulaire d'ajout/modification */}
+            {showForm && (
+              <div className="mb-6 p-6 bg-gradient-to-r from-accent/10 to-primary/10 rounded-xl border border-accent/20">
+                <h3 className="text-lg font-semibold text-dark mb-4">
+                  {editMode ? 'Modifier le Sprint' : 'Nouveau Sprint'}
+                </h3>
+                <form className="flex flex-col md:flex-row md:items-end gap-4" onSubmit={handleSubmit}>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-gray-700">N° Sprint</label>
+                    <input type="number" min="1" className="w-24 border-2 border-accent/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent/40 transition h-10" value={numero} onChange={e => setNumero(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-gray-700">Date début</label>
+                    <input type="date" className="w-44 border-2 border-accent/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent/40 transition h-10" value={dateDebut} onChange={e => setDateDebut(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-gray-700">Date fin</label>
+                    <input type="date" className="w-44 border-2 border-accent/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent/40 transition h-10" value={dateFin} onChange={e => setDateFin(e.target.value)} required />
+                  </div>
+                  <button type="submit" className={"px-5 py-2 rounded-lg font-bold text-white shadow transition-all duration-200 " + (editMode ? "bg-primary hover:bg-primary/90" : "bg-accent hover:bg-accent/80")}>
+                    {editMode ? "Modifier" : "Ajouter"}
+                  </button>
+                  {editMode && (
+                    <button type="button" className="ml-2 px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700 transition" onClick={handleCancelEdit}>
+                      Annuler
+                    </button>
+                  )}
+                </form>
+              </div>
+            )}
+
+            {/* Calendrier */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+              {/* En-tête du calendrier */}
+              <div className="bg-gradient-to-r from-primary to-accent text-white p-4">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => navigateMonth(-1)}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-all duration-200"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <h3 className="text-xl font-bold">
+                    {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                  </h3>
+                  <button
+                    onClick={() => navigateMonth(1)}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-all duration-200"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Grille du calendrier */}
+              <div className="grid grid-cols-7 gap-px bg-gray-200">
+                {/* Jours de la semaine */}
+                {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
+                  <div key={day} className="bg-gray-50 p-3 text-center font-semibold text-gray-700 text-sm">
+                    {day}
+                  </div>
+                ))}
+
+                {/* Jours du mois */}
+                {calendarDays.map(({ day, isCurrentMonth, date }, index) => {
+                  const sprint = getSprintForDate(date);
+                  const isToday = date.toDateString() === new Date().toDateString();
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={`min-h-[80px] p-2 relative ${
+                        isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+                      } ${isToday ? 'ring-2 ring-accent ring-opacity-50' : ''}`}
+                    >
+                      <div className={`text-sm font-medium ${
+                        isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                      } ${isToday ? 'text-accent font-bold' : ''}`}>
+                        {day}
+                      </div>
+                      
+                      {sprint && (
+                        <div className={`mt-1 p-1 rounded text-xs font-semibold text-white shadow-sm ${getSprintColor(sprint.numero)}`}>
+                          Sprint {sprint.numero}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Légende des sprints */}
+            {sprintsTries.length > 0 && (
+              <div className="mt-6">
+                <h3 className="font-semibold mb-3 text-gray-700">Légende des Sprints</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {sprintsTries.map(sprint => (
+                    <div key={sprint.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group hover:shadow-md transition-all duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full ${getSprintColor(sprint.numero)}`}></div>
+                        <div>
+                          <div className="font-semibold text-dark">Sprint {sprint.numero}</div>
+                          <div className="text-sm text-gray-600">{formatDateFR(sprint.dateDebut)} → {formatDateFR(sprint.dateFin)}</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          className="p-1 text-accent hover:text-primary transition"
+                          title="Modifier"
+                          onClick={() => handleEdit(sprint)}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="p-1 text-red-400 hover:text-red-600 transition"
+                          title="Supprimer"
+                          onClick={() => handleDelete(sprint.id)}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {sprintsTries.length === 0 && (
+              <div className="text-center py-8 text-gray-400">
+                <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
+                  <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="2"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 3v4M8 3v4M3 11h18" />
+                </svg>
+                <p className="text-lg font-medium">Aucun sprint configuré</p>
+                <p className="text-sm">Ajoutez votre premier sprint pour commencer !</p>
+              </div>
+            )}
           </section>
         );
       }
