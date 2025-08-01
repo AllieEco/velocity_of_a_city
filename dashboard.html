@@ -68,6 +68,31 @@
           </svg>
           Planning prévisionnel
         </h2>
+        <!-- Filtres -->
+        <div class="flex flex-wrap gap-4 mb-6 items-end">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Priorité</label>
+            <select id="filtrePriorite" class="border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition bg-white shadow-sm">
+              <option value="">Toutes</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">État</label>
+            <select id="filtreEtat" class="border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition bg-white shadow-sm">
+              <option value="">Tous</option>
+              <option value="en_cours">En cours</option>
+              <option value="bientot_retard">Bientôt en retard</option>
+              <option value="retard">En retard</option>
+              <option value="livre">Livré</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Développeur</label>
+            <select id="filtreDev" class="border-2 border-primary/20 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/40 transition bg-white shadow-sm">
+              <option value="">Tous</option>
+            </select>
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="min-w-full border-separate border-spacing-0 rounded-2xl shadow-lg bg-white">
             <thead>
@@ -84,9 +109,9 @@
             </thead>
             <tbody id="planningTableBody"></tbody>
           </table>
-                    </div>
-            <div class="text-xs text-gray-500 mt-2">* 1 sprint de marge est ajouté automatiquement à chaque projet.</div>
-          </section>
+        </div>
+        <div class="text-xs text-gray-500 mt-2">* 1 sprint de marge est ajouté automatiquement à chaque projet.</div>
+      </section>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <section class="bg-white/90 p-6 rounded-2xl shadow-magic border border-primary/10 transition-all duration-300 hover:shadow-2xl">
           <h2 class="text-xl font-bold font-display text-primary mb-4 flex items-center gap-2">
@@ -438,23 +463,209 @@
         d.setDate(d.getDate() + totalDays);
         return d.toLocaleDateString('fr-FR');
       }
-      // Affichage du planning dans le tableau
+      // Fonction getPointsDispo améliorée (version de l'index)
+      function getPointsDispo(dev, sprintIndex) {
+        const POINTS_PAR_STATUT = {
+          'Débutant': 30,
+          'Junior': 45,
+          'Confirmé': 60,
+          'Senior': 75,
+        };
+        const SPRINT_DAYS = 10;
+        const base = POINTS_PAR_STATUT[dev.statut] || 0;
+        const absenceData = dev.absences?.[sprintIndex];
+        const abs = typeof absenceData === 'number' ? absenceData : (absenceData?.jours || 0);
+        const ratio = Math.max(0, 1 - abs / SPRINT_DAYS);
+        return Math.round(base * ratio);
+      }
+
+      // Fonction genererPlanning complète (version de l'index)
+      function genererPlanning(devs, projects) {
+        const POINTS_PAR_STATUT = {
+          'Débutant': 30,
+          'Junior': 45,
+          'Confirmé': 60,
+          'Senior': 75,
+        };
+        const SPRINT_DAYS = 10;
+        
+        // Tri des projets par priorité croissante
+        const projetsTries = [...projects].sort((a, b) => a.priorite - b.priorite);
+        let sprintIndex = 0;
+        let projetsRestants = projetsTries.map(p => ({ ...p, pointsRestants: p.points, debut: null, fin: null, sprints: 0, devsAffectes: [] }));
+
+        // On boucle tant qu'il reste des projets à finir
+        while (projetsRestants.some(p => p.pointsRestants > 0)) {
+          // Réinitialiser les points disponibles pour ce sprint
+          let devsState = devs.map(dev => ({
+            ...dev,
+            pointsDispo: getPointsDispo(dev, sprintIndex)
+          }));
+
+          // Première passe : identifier tous les projets actifs ce sprint
+          let projetsActifs = projetsRestants.filter(p => p.pointsRestants > 0);
+          
+          // Deuxième passe : répartition intelligente basée sur les priorités
+          for (let projet of projetsActifs) {
+            if (projet.pointsRestants <= 0) continue;
+            if (projet.debut === null) projet.debut = sprintIndex;
+            let pointsAffectes = 0;
+            
+            // Déterminer les devs à utiliser pour ce projet
+            let devsPourProjet = Array.isArray(projet.devsAffectesIds) && projet.devsAffectesIds.length > 0
+              ? devsState.filter(d => projet.devsAffectesIds.includes(d.id))
+              : devsState;
+            
+            // Répartition intelligente sur les devs affectés
+            for (let dev of devsPourProjet) {
+              if (dev.pointsDispo <= 0 || projet.pointsRestants <= 0) continue;
+              
+              // Identifier tous les projets actifs sur ce dev
+              let projetsSurCeDev = projetsActifs.filter(p => {
+                if (p.pointsRestants <= 0) return false;
+                let devsDuProjet = Array.isArray(p.devsAffectesIds) && p.devsAffectesIds.length > 0
+                  ? devsState.filter(d => p.devsAffectesIds.includes(d.id))
+                  : devsState;
+                return devsDuProjet.some(d => d.id === dev.id);
+              });
+              
+              // Grouper les projets par priorité
+              let projetsParPriorite = {};
+              projetsSurCeDev.forEach(p => {
+                if (!projetsParPriorite[p.priorite]) {
+                  projetsParPriorite[p.priorite] = [];
+                }
+                projetsParPriorite[p.priorite].push(p);
+              });
+              
+              let pointsPourCeDev = 0;
+              const priorites = Object.keys(projetsParPriorite).map(Number).sort((a, b) => a - b);
+              
+              // Logique de répartition basée sur les priorités
+              if (priorites.length === 1) {
+                // Même priorité : répartition équitable
+                const nbProjets = projetsParPriorite[priorites[0]].length;
+                pointsPourCeDev = Math.floor(dev.pointsDispo / nbProjets);
+              } else if (priorites.length === 2) {
+                const prioriteHaute = priorites[0];
+                const prioriteBasse = priorites[1];
+                
+                if (prioriteHaute === 1 && prioriteBasse === 3) {
+                  // Priorité 1 vs 3 : séquentiel (priorité 1 d'abord)
+                  if (projet.priorite === 1) {
+                    pointsPourCeDev = dev.pointsDispo; // 100% pour priorité 1
+                  } else {
+                    pointsPourCeDev = 0; // 0% pour priorité 3 (attendre)
+                  }
+                } else {
+                  // Autres cas : 80/20
+                  if (projet.priorite === prioriteHaute) {
+                    pointsPourCeDev = Math.floor(dev.pointsDispo * 0.8);
+                  } else {
+                    pointsPourCeDev = Math.floor(dev.pointsDispo * 0.2);
+                  }
+                }
+              } else {
+                // Plus de 2 priorités : priorité la plus haute d'abord
+                const prioriteMin = Math.min(...priorites);
+                if (projet.priorite === prioriteMin) {
+                  pointsPourCeDev = dev.pointsDispo; // 100% pour priorité la plus haute
+                } else {
+                  pointsPourCeDev = 0; // 0% pour les autres (attendre)
+                }
+              }
+              
+              // Appliquer les limites
+              pointsPourCeDev = Math.min(pointsPourCeDev, projet.pointsRestants, dev.pointsDispo);
+              
+              dev.pointsDispo -= pointsPourCeDev;
+              projet.pointsRestants -= pointsPourCeDev;
+              pointsAffectes += pointsPourCeDev;
+              if (!projet.devsAffectes.includes(dev.nom)) projet.devsAffectes.push(dev.nom);
+            }
+            
+            if (pointsAffectes > 0) projet.sprints++;
+            if (projet.pointsRestants <= 0 && projet.fin === null) projet.fin = sprintIndex;
+          }
+          sprintIndex++;
+        }
+        
+        // Ajout d'une marge de 1 sprint par projet
+        for (let projet of projetsRestants) {
+          projet.sprints += 1;
+          projet.fin = (projet.fin ?? 0) + 1;
+        }
+        return projetsRestants;
+      }
+
+      // Fonction utilitaire pour la date de fin prévisionnelle
+      function getDateFin(proj) {
+        if (!proj.dateDebut) return "-";
+        const SPRINT_DAYS = 10;
+        const d = new Date(proj.dateDebut);
+        const totalDays = proj.sprints * (SPRINT_DAYS + 2);
+        d.setDate(d.getDate() + totalDays);
+        return d.toLocaleDateString('fr-FR');
+      }
+
+      // Helper pour état du projet
+      function getEtatProjet(proj) {
+        if (proj.fini) return 'livre';
+        const dateFinStr = getDateFin(proj);
+        if (!dateFinStr || dateFinStr === '-') return 'en_cours';
+        const [jour, mois, annee] = dateFinStr.split('/').map(Number);
+        const dateFin = new Date(annee, mois - 1, jour);
+        const now = new Date();
+        dateFin.setHours(0,0,0,0);
+        now.setHours(0,0,0,0);
+        const diffJours = Math.ceil((dateFin - now) / (1000 * 60 * 60 * 24));
+        if (diffJours < 0) return 'retard';
+        if (diffJours <= 7) return 'bientot_retard';
+        return 'en_cours';
+      }
+
+      // Affichage du planning dans le tableau avec filtres
       function renderPlanningTable() {
         const planning = genererPlanning(devs, projects);
         const projectsById = Object.fromEntries(projects.map(p => [p.id, p]));
-        const tbody = document.getElementById('planningTableBody');
-        tbody.innerHTML = '';
+        
+        // Associer l'état 'fini' du projet d'origine
+        const planningWithFini = planning.map(p => ({ ...p, fini: projectsById[p.id]?.fini ?? false }));
         
         // Tri par priorité puis date de début
-        const planningSorted = [...planning].sort((a, b) => {
+        const planningSorted = [...planningWithFini].sort((a, b) => {
           if (a.priorite !== b.priorite) return a.priorite - b.priorite;
           if (!a.dateDebut && b.dateDebut) return 1;
           if (a.dateDebut && !b.dateDebut) return -1;
           if (!a.dateDebut && !b.dateDebut) return 0;
           return new Date(a.dateDebut) - new Date(b.dateDebut);
         });
+
+        // Récupérer les valeurs des filtres
+        const filtrePriorite = document.getElementById('filtrePriorite').value;
+        const filtreEtat = document.getElementById('filtreEtat').value;
+        const filtreDev = document.getElementById('filtreDev').value;
+
+        // Filtrage
+        const planningFiltred = planningSorted.filter(proj => {
+          if (filtrePriorite && String(proj.priorite) !== filtrePriorite) return false;
+          if (filtreEtat) {
+            const etat = getEtatProjet(proj);
+            if (filtreEtat === 'en_cours' && etat !== 'en_cours') return false;
+            if (filtreEtat === 'livre' && etat !== 'livre') return false;
+            if (filtreEtat === 'retard' && etat !== 'retard') return false;
+            if (filtreEtat === 'bientot_retard' && etat !== 'bientot_retard') return false;
+          }
+          if (filtreDev) {
+            if (!proj.devsAffectesIds || !proj.devsAffectesIds.includes(Number(filtreDev))) return false;
+          }
+          return true;
+        });
+
+        const tbody = document.getElementById('planningTableBody');
+        tbody.innerHTML = '';
         
-        planningSorted.forEach((proj, idx) => {
+        planningFiltred.forEach((proj, idx) => {
           const p = projectsById[proj.id] || {};
           let rowClass = "transition hover:bg-accent/10 ";
           
@@ -537,7 +748,41 @@
           tbody.appendChild(tr);
         });
       }
-      document.addEventListener('DOMContentLoaded', renderPlanningTable);
+
+      // Fonction pour initialiser les filtres
+      function initFiltres() {
+        const planning = genererPlanning(devs, projects);
+        const projectsById = Object.fromEntries(projects.map(p => [p.id, p]));
+        const planningWithFini = planning.map(p => ({ ...p, fini: projectsById[p.id]?.fini ?? false }));
+        
+        // Remplir le filtre priorité
+        const filtrePriorite = document.getElementById('filtrePriorite');
+        const priorites = [...new Set(planningWithFini.map(p => p.priorite))].sort((a,b)=>a-b);
+        priorites.forEach(prio => {
+          const option = document.createElement('option');
+          option.value = prio;
+          option.textContent = prio;
+          filtrePriorite.appendChild(option);
+        });
+
+        // Remplir le filtre développeur
+        const filtreDev = document.getElementById('filtreDev');
+        devs.forEach(dev => {
+          const option = document.createElement('option');
+          option.value = dev.id;
+          option.textContent = `${dev.prenom} ${dev.nom}`;
+          filtreDev.appendChild(option);
+        });
+
+        // Ajouter les event listeners pour les filtres
+        document.getElementById('filtrePriorite').addEventListener('change', renderPlanningTable);
+        document.getElementById('filtreEtat').addEventListener('change', renderPlanningTable);
+        document.getElementById('filtreDev').addEventListener('change', renderPlanningTable);
+      }
+              document.addEventListener('DOMContentLoaded', function() {
+          initFiltres();
+          renderPlanningTable();
+        });
     </script>
   </body>
 </html> 
